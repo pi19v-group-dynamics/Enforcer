@@ -31,7 +31,7 @@ ifeq ($(OS), Windows_NT)
 else
 	mkdir -p bin
 endif
-	$(CC) src/*.c -obin/$(NAME) $(FLAGS) $(TEST)
+	$(CC) $(wildcard src/*.c) -obin/$(NAME) $(FLAGS) $(TEST)
 
 release:
 ifeq ($(OS), Windows_NT)
@@ -39,7 +39,7 @@ ifeq ($(OS), Windows_NT)
 else
 	mkdir -p bin
 endif
-	$(CC) src/*.c -obin/$(NAME) $(FLAGS) $(REL)
+	$(CC) $(wildcard src/*.c) -obin/$(NAME) $(FLAGS) $(REL)
 
 run:
 	./bin/$(NAME)
