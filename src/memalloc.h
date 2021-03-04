@@ -27,7 +27,7 @@ static inline void* _memalloc_malloc(size_t bytes, const char* restrict file, co
 }
 
 __attribute__((always_inline))
-inline void* _memalloc_calloc(size_t count, size_t bytes, const char* restrict file, const char* restrict func, int line)
+static inline void* _memalloc_calloc(size_t count, size_t bytes, const char* restrict file, const char* restrict func, int line)
 {
 	void* ptr = calloc(count, bytes);
 	if (ptr == NULL)
@@ -49,7 +49,7 @@ inline void* _memalloc_calloc(size_t count, size_t bytes, const char* restrict f
 }
 
 __attribute__((always_inline))
-inline void* _memalloc_realloc(void* ptr, size_t bytes, const char* restrict file, const char* restrict func, int line)
+static inline void* _memalloc_realloc(void* ptr, size_t bytes, const char* restrict file, const char* restrict func, int line)
 {
 	ptr = realloc(ptr, bytes);
 	if (ptr == NULL)
@@ -68,8 +68,10 @@ inline void* _memalloc_realloc(void* ptr, size_t bytes, const char* restrict fil
 	return ptr;
 }
 
+/* TODO: remove it? */
+#if 0 
 __attribute__((always_inline))
-inline void* _memalloc_aligned_alloc(size_t alig, size_t bytes, const char* restrict file, const char* restrict func, int line)
+static inline void* _memalloc_aligned_alloc(size_t alig, size_t bytes, const char* restrict file, const char* restrict func, int line)
 {
 	void* ptr = aligned_alloc(alig, bytes);
 	if (ptr == NULL)
@@ -89,9 +91,10 @@ inline void* _memalloc_aligned_alloc(size_t alig, size_t bytes, const char* rest
 	}
 	return ptr;
 }
+#endif
 
 __attribute__((always_inline))
-inline void _memalloc_free(void* ptr, const char* restrict file, const char* restrict func, int line)
+static inline void _memalloc_free(void* ptr, const char* restrict file, const char* restrict func, int line)
 {
 	if (ptr != NULL)
 	{
