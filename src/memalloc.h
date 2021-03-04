@@ -1,21 +1,10 @@
 #ifndef MEMALLOC_H
 #define MEMALLOC_H
 
-#include "log.h"
+#include <stdlib.h>
+#include <stdint.h>
 
-extern unsigned long _memalloc_leaks;
-
-/*
- * Override of malloc, calloc, realloc, aligned_alloc with fail/leak check and
- * logging.
- */
-
-static inline void* _memalloc_malloc(size_t bytes, const char* restrict file, const char* restrict func, int line) ATTRIBUTE(always_inline);
-static inline void* _memalloc_calloc(size_t count, size_t bytes, const char* restrict file, const char* restrict func, int line) ATTRIBUTE(always_inline);
-static inline void* _memalloc_realloc(void* ptr, size_t bytes, const char* restrict file, const char* restrict func, int line) ATTRIBUTE(always_inline);
-static inline void* _memalloc_aligned_alloc(size_t alihg, size_t bytes, const char* restrict file, const char* restrict func, int line) ATTRIBUTE(always_inline);
-static inline void _memalloc_free(void* ptr, const char* restrict file, const char* restrict func, int line) ATTRIBUTE(always_inline);
-
+__attribute__((always_inline))
 static inline void* _memalloc_malloc(size_t bytes, const char* restrict file, const char* restrict func, int line)
 {
 	void* ptr = malloc(bytes);
@@ -24,19 +13,21 @@ static inline void* _memalloc_malloc(size_t bytes, const char* restrict file, co
 		log_write(LOG_ERROR, file, func, line, "failed to allocate %lu byte(s)", bytes);
 #ifdef MEMALLOC_ABORT
 		abort();
-#endif
+#endif /* MEMALLOC_LOG */
 	}
 	else
 	{
+		extern uint_fast32_t _memalloc_leaks;
 		++_memalloc_leaks;
 #ifdef MEMALLOC_LOG
 		log_debug("allocated %lu byte(s), block: %p", ptr);
-#endif
+#endif /* MEMALLOC_LOG */
 	}
 	return ptr;
 }
 
-static inline void* _memalloc_calloc(size_t count, size_t bytes, const char* restrict file, const char* restrict func, int line)
+__attribute__((always_inline))
+inline void* _memalloc_calloc(size_t count, size_t bytes, const char* restrict file, const char* restrict func, int line)
 {
 	void* ptr = calloc(count, bytes);
 	if (ptr == NULL)
@@ -44,19 +35,21 @@ static inline void* _memalloc_calloc(size_t count, size_t bytes, const char* res
 		log_write(LOG_ERROR, file, func, line, "failed to allocate %lu elements of %lu byte(s)", count, bytes);
 #ifdef MEMALLOC_ABORT
 		abort();
-#endif
+#endif /* MEMALLOC_LOG */
 	}
 	else
 	{
+		extern uint_fast32_t _memalloc_leaks;
 		++_memalloc_leaks;
 #ifdef MEMALLOC_LOG
 		log_debug("allocated %lu bytes, block: %p", count * bytes, ptr);
-#endif
+#endif /* MEMALLOC_LOG */
 	}
 	return ptr;
 }
 
-static inline void* _memalloc_realloc(void* ptr, size_t bytes, const char* restrict file, const char* restrict func, int line)
+__attribute__((always_inline))
+inline void* _memalloc_realloc(void* ptr, size_t bytes, const char* restrict file, const char* restrict func, int line)
 {
 	ptr = realloc(ptr, bytes);
 	if (ptr == NULL)
@@ -64,18 +57,19 @@ static inline void* _memalloc_realloc(void* ptr, size_t bytes, const char* restr
 		log_write(LOG_ERROR, file, func, line, "failed to reallocate block %p to length %lu", ptr, bytes);
 #ifdef MEMALLOC_ABORT
 		abort();
-#endif
+#endif /* MEMALLOC_LOG */
 	}
 #ifdef MEMALLOC_LOG
 	else
 	{
 		log_debug("reallocated %lu bytes, block: %p", bytes, ptr);
 	}
-#endif
+#endif /* MEMALLOC_LOG */
 	return ptr;
 }
 
-static inline void* _memalloc_aligned_alloc(size_t alig, size_t bytes, const char* restrict file, const char* restrict func, int line)
+__attribute__((always_inline))
+inline void* _memalloc_aligned_alloc(size_t alig, size_t bytes, const char* restrict file, const char* restrict func, int line)
 {
 	void* ptr = aligned_alloc(alig, bytes);
 	if (ptr == NULL)
@@ -83,31 +77,35 @@ static inline void* _memalloc_aligned_alloc(size_t alig, size_t bytes, const cha
 		log_write(LOG_ERROR, file, func, line, "failed to allocate %lu byte(s)", bytes);
 #ifdef MEMALLOC_ABORT
 		abort();
-#endif
+#endif /* MEMALLOC_LOG */
 	}
 	else
 	{
+		extern uint_fast32_t _memalloc_leaks;
 		++_memalloc_leaks;
 #ifdef MEMALLOC_LOG
 		log_debug("allocated %lu byte(s), block: %p", ptr);
-#endif
+#endif /* MEMALLOC_LOG */
 	}
 	return ptr;
 }
 
-static inline void _memalloc_free(void* ptr, const char* restrict file, const char* restrict func, int line)
+__attribute__((always_inline))
+inline void _memalloc_free(void* ptr, const char* restrict file, const char* restrict func, int line)
 {
-#ifdef MEMALLOC_LOG
 	if (ptr != NULL)
 	{
+#ifdef MEMALLOC_LOG
 		log_write(LOG_ERROR, file, func, line, "freed block %p", ptr);
+#else /* !MEMALLOC*/
+		(void) file;
+		(void) func;
+		(void) line;
+#endif /* MEMALLOC_LOG */
+		extern uint_fast32_t _memalloc_leaks;
+		--_memalloc_leaks;
+		free(ptr);
 	}
-#else
-	(void) file;
-	(void) func;
-	(void) line;
-#endif
-	free(ptr);
 }
 
 #define malloc(x) _memalloc_malloc(x, __FILE__, __func__, __LINE__)
