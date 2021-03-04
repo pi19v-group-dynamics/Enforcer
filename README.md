@@ -1,1 +1,1 @@
-# Tetrix
+# Poke n' Conquer
