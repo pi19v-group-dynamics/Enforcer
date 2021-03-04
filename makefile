@@ -9,15 +9,15 @@ FLAGS = -Wall -Wextra -pedantic -g03 -O0 \
 				-DMEMALLOC_ABORT
 				# -DMEMALLOC_LOG
 
-#ifeq ($(OS), Windows_NT)
-#	FLAGS += -lmingw32 -lSDL2main -lSDL2
-#else
-#ifeq ($(UNAME_S), Linux)
-FLAGS += -lSDL2 -lm
-#else
-#	$(error Your platform not supported)
-#endif
-#endif
+ifeq ($(OS), Windows_NT)
+	FLAGS += -lmingw32 -lSDL2main -lSDL2
+else
+ifeq ($(UNAME_S), Linux)
+	FLAGS += -lSDL2 -lm
+else
+	$(error Your platform not supported)
+endif
+endif
 
 build:
 ifeq ($(OS), Windows_NT)
