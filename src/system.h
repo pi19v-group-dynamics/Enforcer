@@ -25,6 +25,7 @@ void sys_title(const char* title); /* set window title */
 void sys_scale(int scale); /* set window scale */
 int sys_step(double time_step, double* dt); /* do time step */
 void sys_vsync(bool enabled); /* set vsync enabled/disabled */
+void sys_mute(bool mute); /* mute/unmute audio device */
 
 #endif /* SYSTEM_H */
 

@@ -137,6 +137,10 @@ mix_source_t* mix_load_source(const char filename[static 2])
 	}
 	else
 	{
+		confirm(spec->format   == _sys_audio_spec.format
+		     && spec->channels == _sys_audio_spec.channels
+				 && spec->freq     == _sys_audio_spec.freq,
+				 "Failed on load audio file '%s'. Unsupported audio format!", filename);
 		src = mix_make_source(data, size);
 	}
 	/* Free loaded audio */

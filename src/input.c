@@ -8,7 +8,7 @@ int  inp_wheel_x  = 0,  inp_wheel_y = 0;
 int  inp_wheel_dx = 0, inp_wheel_dy = 0;
 char inp_text[32];
 
-inline int inp_first_pressed(void)
+int inp_first_pressed(void)
 {
 	for (int i = 0; i < SDL_NUM_SCANCODES; ++i)
 	{
