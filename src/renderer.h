@@ -3,7 +3,18 @@
 
 #include <SDL2/SDL_endian.h>
 #include <stdint.h>
-#include <stdbool.h>
+
+#ifndef REN_WIDTH
+#define REN_WIDTH  136
+#endif /* !REN_WIDTH */
+
+#ifndef REN_HEIGHT
+#define REN_HEIGHT 128
+#endif /* !REN_HEIGHT */
+
+/******************************************************************************
+ * Typedef's
+ *****************************************************************************/
 
 typedef union ren_pixel
 {
@@ -29,9 +40,14 @@ ren_rect_t;
 
 typedef struct ren_transform
 {
-	float ang;      /* angle */
-	float sx, sy;   /* scale */
-	float ox, oy;   /* offset */
+	/* Direct access fields */
+	float ang;        /* rotation angle */
+	float sx, sy;     /* scaling factor */
+	float ox, oy;     /* relative offset (in pixels) */
+	/* Auto calculated fields */
+	float sin, cos;   /* sin(ang), cos(ang) */
+	int beg_x, beg_y; /* top left corner of bound rectangle */
+	int end_x, end_y; /* bottom right corner of bound rectangle */
 }
 ren_transform_t;
 
@@ -42,21 +58,35 @@ typedef struct ren_buffer
 }
 ren_buffer_t;
 
-extern ren_buffer_t* const ren_screen; /* virtual framebuffer */
-extern const ren_transform_t* const REN_NULL_TRANSFORM; /* default transform */
+typedef struct ren_font
+{
+	int pitch;                  /* number glyphs in line */
+	int glyph_w, glyph_h;       /* size of glyph (monospace font) */
+	const ren_buffer_t* buffer; /* source font image */
+}
+ren_font_t;
+
+typedef struct ren_state
+{
+	struct { int x, y; } translate;
+	ren_pixel_t color;
+	ren_blend_t blend;
+	ren_rect_t clip;
+	ren_font_t* font;
+	ren_buffer_t* target;
+}
+ren_state_t;
 
 /******************************************************************************
  * Renderer state
  *****************************************************************************/
 
-extern int ren_translate_x,
-           ren_translate_y;      /* actual translate */
-extern ren_pixel_t ren_color;    /* actual render color */
-extern ren_blend_t ren_blend;    /* actual blend mode */
-extern ren_rect_t ren_clip;      /* actual clip area */
-extern ren_buffer_t* ren_target; /* actual rendering target */
+extern ren_buffer_t* const ren_screen; /* virtual framebuffer */
+extern ren_state_t ren_state; /* render state */
 
-void ren_reset(void); /* reset rendering state */ 
+ren_state_t ren_begin(void); /* lock renderer state */
+void ren_end(ren_state_t st); /* unlock render state */
+void ren_reset(void); /* resets render state */
 void ren_flip(void); /* flip ren_screen buffers and render front buffer */
 
 /******************************************************************************
@@ -73,7 +103,7 @@ void ren_blend_darken(ren_pixel_t* dst, ren_pixel_t src);
 void ren_blend_screen(ren_pixel_t* dst, ren_pixel_t src);
 
 /******************************************************************************
- * Constructors
+ * Image buffer
  *****************************************************************************/
 
 ren_buffer_t* ren_blank_buffer(int width, int height);
@@ -81,6 +111,13 @@ ren_buffer_t* ren_copy_buffer(const ren_buffer_t* src);
 ren_buffer_t* ren_shared_buffer(void* data, int width, int height);
 ren_buffer_t* ren_load_buffer(const char filename[static 2]);
 void ren_free_buffer(ren_buffer_t* buf);
+
+/******************************************************************************
+ * Font
+ *****************************************************************************/
+
+ren_font_t* ren_make_font(const ren_buffer_t* buf, int glyph_w, int glyph_h);
+void ren_free_font(ren_font_t* font);
 
 /******************************************************************************
  * Rendering routines
@@ -94,7 +131,9 @@ void ren_box(int x, int y, int w, int h);
 void ren_line(int x0, int y0, int x1, int x2);
 void ren_circ(int x, int y, int r); 
 void ren_ring(int x, int y, int r); 
-void ren_blit(const ren_buffer_t* buf, int x, int y, const ren_rect_t* rect, const ren_transform_t* tr);
+void ren_recalc_transform(ren_transform_t* tr, const ren_rect_t* rect);
+void ren_buffer(const ren_buffer_t* buf, int x, int y, const ren_rect_t* rect, const ren_transform_t* tr);
+void ren_text(const char* text, int x, int y, int hsp, int vsp, int sx, int sy);
 
 #endif /* RENDERER_H */
 

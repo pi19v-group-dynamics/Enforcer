@@ -36,7 +36,7 @@ enum /* log allow bitfield values */
 /* Set logging stream */
 void log_stream(FILE* fp);
 /* Generic function to printing logs */
-void log_write(int, const char* restrict, const char* restrict, int, const char* restrict, ...);
+void log_write(int lvl, const char* restrict file, const char* restrict func, int line, const char* restrict fmt, ...);
 
 #endif /* LOG_H */
 

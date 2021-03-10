@@ -7,8 +7,7 @@ typedef enum mix_state
 {
 	MIX_PLAYING,
 	MIX_STOPPED,
-	MIX_PAUSED,
-	MIX_ERASING
+	MIX_PAUSED
 }
 mix_state_t;
 
