@@ -6,7 +6,22 @@
 #include "memalloc.h"
 #include "utils.h"
 #include "fastmath.h"
+
+/* Import stb_image.h, avoid warnings from it */
+#define STB_IMAGE_STATIC
+#define STBI_ONLY_PNG
+#define STBI_NO_GIF
+#define STB_IMAGE_IMPLEMENTATION
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
+#pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "stb_image.h"
+#pragma GCC diagnostic pop
+
+/******************************************************************************
+ * Internals
+ *****************************************************************************/
 
 __attribute__((always_inline, pure)) static inline int max(int a, int b)
 {
@@ -17,6 +32,10 @@ __attribute__((always_inline, pure)) static inline int min(int a, int b)
 {
 	return a < b ? a : b;
 }
+
+/******************************************************************************
+ * Renderer state
+ *****************************************************************************/
 
 static ren_pixel_t buffers[2][REN_WIDTH * REN_HEIGHT];
 static int buf_cnt = 0;
@@ -32,24 +51,6 @@ const ren_transform_t* const REN_NULL_TRANSFORM = &(ren_transform_t)
 {
 	.ang = 0.0f, .sx = 1.0f, .sy = 1.0f, .ox = 0.0f, .oy = 0.0f
 };
-
-struct ren_batch
-{
-	const ren_transform_t* transform;
-	int size_w, size_h;
-	struct batch_entry
-	{
-		int pos_x, pos_y;
-		int buf_x, buf_y;
-		const ren_buffer_t* buf;
-	}
-	* entries;
-	int index, length, capacity;
-};
-
-/******************************************************************************
- * Renderer state
- *****************************************************************************/
 
 ren_state_t ren_state;
 static atomic_flag lock_flag = ATOMIC_FLAG_INIT;
@@ -217,41 +218,30 @@ ren_buffer_t* ren_load_buffer(const char filename[static 2])
 	buf->height = h;
 	buf->data = (ren_pixel_t*)((char*)buf + sizeof(ren_buffer_t)); 
 	/* Convert and copy pixel data */
+	unsigned char* src = image_data;
+	ren_pixel_t* dst = buf->data;
 	switch (comp)
 	{
 		case 3: /* RGB */
-		{
-			unsigned char* src = image_data;
-			ren_pixel_t* dst = buf->data;
 			while (src < image_data + w * h * comp)
 			{
 				dst->a = 0xFF;
 				dst->r = src[0];
 				dst->g = src[1];
 				dst->b = src[2];
-			  src += 3, ++dst;
+			  src += comp, ++dst;
 			}
 			break;
-		}
 		case 4: /* RGBA */
-		{
-			puts("here");
-			ren_pixel_t* src = (ren_pixel_t*)image_data;
-			ren_pixel_t* dst = buf->data;
-			while (src < (ren_pixel_t*)image_data + w * h)
+			while (src < image_data + w * h * comp)
 			{
-#if 1
-				dst->a = src->b;
-				dst->r = src->a;
-				dst->g = src->r;
-				dst->b = src->g;
-#else
-				dst->raw = src->raw;
-#endif
-			  ++src, ++dst;
+				dst->a = src[3];
+				dst->r = src[0];
+				dst->g = src[1];
+				dst->b = src[2];
+			  src += comp, ++dst;
 			}
 			break;
-		}
 		default: /* not supported format! */
 			error("Image '%s' has unsupported pixel format!", filename);
 			break;
@@ -276,6 +266,7 @@ ren_font_t* ren_make_font(const ren_buffer_t* buf, int glyph_w, int glyph_h)
 	font->glyph_w = glyph_w;
 	font->glyph_h = glyph_h;
 	font->buffer = buf;
+	font->pitch = buf->width / glyph_w;
 	return font;
 }
 
@@ -289,18 +280,8 @@ inline void ren_free_font(ren_font_t* font)
  *****************************************************************************/
 
 ren_batch_t* ren_make_batch(int size_w, int size_h);
-void ren_recalc_batch(const ren_transform_t* tr);
-void ren_free_batch(ren_batch_t* bat);
 void ren_push_batch(ren_batch_t* bat, int pos_x, int pos_y, int buf_x, int buf_y, const ren_buffer_t* buf);
-
-/******************************************************************************
- * Tilemap
- *****************************************************************************/
-
-ren_tileset_t* ren_make_tileset(const ren_buffer_t* buf, int tile_w, int tile_h);
-ren_tilemap_t* ren_make_tilemap(const ren_tileset_t* ts, int width, int height, int num_layers);
-void ren_free_tileset(ren_tileset_t* ts); 
-void ren_free_tilemap(ren_tilemap_t* tm); 
+void ren_free_batch(ren_batch_t* bat);
 
 /******************************************************************************
  * Rendering routines
@@ -467,15 +448,13 @@ void ren_ring(int x, int y, int r)
 	}
 }
 
-void ren_buffer(const ren_buffer_t* buf, int px, int py, const ren_rect_t* rect, const ren_transform_t* tr)
+void ren_recalc_transform(ren_transform_t* tr, const ren_rect_t* rect)
 {
-	/* Translate position */
-	px += ren_state.translate.x;
-	py += ren_state.translate.y;
+	tr->sin = -fastsin(tr->ang);
+	tr->cos = fastcos(tr->ang);
 	/* Precalculate factors */
-	float sin = -fastsin(tr->ang), cos = fastcos(tr->ang);
-	float sin_sx = sin * tr->sx, sin_sy = sin * tr->sy;
-	float cos_sx = cos * tr->sx, cos_sy = cos * tr->sy;
+	float sin_sx = tr->sin * tr->sx, sin_sy = tr->sin * tr->sy;
+	float cos_sx = tr->cos * tr->sx, cos_sy = tr->cos * tr->sy;
 	/* Translate points to origin */
 	float x0 =          -tr->ox, y0 =          -tr->oy;
 	float x1 = rect->w - tr->ox, y1 =          -tr->oy;
@@ -490,10 +469,22 @@ void ren_buffer(const ren_buffer_t* buf, int px, int py, const ren_rect_t* rect,
 	rotate(0); rotate(1); rotate(2); rotate(3);
 	#undef rotate
 	/* Find top left and bottom right points of boundary rectangle and clip */
-	int beg_x = max(-px, fmin(x0, fmin(x1, fmin(x2, x3))));
-	int beg_y = max(-py, fmin(y0, fmin(y1, fmin(y2, y3))));
-	int end_x = min(fmax(x0, fmax(x1, fmax(x2, x3))), REN_WIDTH - 1 - px);
-	int end_y = min(fmax(y0, fmax(y1, fmax(y2, y3))), REN_HEIGHT - 1 - py);
+	tr->beg_x = fmin(x0, fmin(x1, fmin(x2, x3)));
+	tr->beg_y = fmin(y0, fmin(y1, fmin(y2, y3)));
+	tr->end_x = fmax(x0, fmax(x1, fmax(x2, x3)));
+	tr->end_y = fmax(y0, fmax(y1, fmax(y2, y3)));
+}
+
+void ren_buffer(const ren_buffer_t* buf, int px, int py, const ren_rect_t* rect, const ren_transform_t* tr)
+{
+	/* Translate position */
+	px += ren_state.translate.x;
+	py += ren_state.translate.y;
+	/* Clip bound rectangle to fit it on screen */
+	int beg_x = max(-px, tr->beg_x);
+	int beg_y = max(-py, tr->beg_y);
+	int end_x = min(tr->end_x, REN_WIDTH - px);
+	int end_y = min(tr->end_y, REN_HEIGHT - py);
 	/* For each point of boundary */
 	for (int ty = beg_y; ty < end_y; ++ty)
 	{
@@ -501,8 +492,8 @@ void ren_buffer(const ren_buffer_t* buf, int px, int py, const ren_rect_t* rect,
 		for (int tx = beg_x; tx < end_x; ++tx)
 		{
 			/* Derotate point */
-			float drx = (tx * cos - ty * sin) / tr->sx + tr->ox;
-			float dry = (tx * sin + ty * cos) / tr->sy + tr->oy;
+			float drx = (tx * tr->cos - ty * tr->sin) / tr->sx + tr->ox;
+			float dry = (tx * tr->sin + ty * tr->cos) / tr->sy + tr->oy;
 			if (drx >= 0.0f && dry >= 0.0f && drx < rect->w && dry < rect->h)
 			{
 				/* Blend pixel */
@@ -513,23 +504,35 @@ void ren_buffer(const ren_buffer_t* buf, int px, int py, const ren_rect_t* rect,
 	} 
 }
 
-void ren_text(const char* text, int x, int y, const ren_transform_t* tr)
+static inline void blit_scaled(const ren_buffer_t* buf, const ren_rect_t* rect, int px, int py, int sx, int sy)
 {
-	(void) tr;
-	for (int i = 0; text[i] != '\0'; ++i)
+	/* Clip scaled rect */
+	int end_x = min(px + rect->w * sx, REN_WIDTH);
+	int end_y = min(py + rect->h * sy, REN_HEIGHT);
+	/* Blend pixels */
+	for (int y = py; y < end_y; ++y)
 	{
-		ren_buffer(ren_state.font->buffer, x + (i * ren_state.font->glyph_w + 1), y,
-			&(ren_rect_t)
-			{
-				0,
-				4 * 16,
-				ren_state.font->glyph_w,
-				ren_state.font->glyph_h
-			},
-			REN_NULL_TRANSFORM);
+		ren_pixel_t* dst = ren_state.target->data + y * ren_state.target->width;
+		const ren_pixel_t* src = buf->data + ((y - py) / sy + rect->y) * buf->width;
+		for (int x = px; x < end_x; ++x)
+		{
+			ren_state.blend(dst + x, (ren_pixel_t){src[(x - px) / sx + rect->x].raw & ren_state.color.raw});
+		}
 	}
 }
 
-void ren_batch(const ren_batch_t* bat, int x, int y);
-void ren_tilemap(const ren_tilemap_t* tm, int x, int y, const ren_rect_t* rect, const ren_transform_t* tr);
+void ren_text(const char* text, int x, int y, int hsp, int vsp, int sx, int sy)
+{
+	ren_rect_t rect = {.w = ren_state.font->glyph_w, .h = ren_state.font->glyph_h}; 	
+	x += ren_state.translate.x;
+	y += ren_state.translate.y;
+	if (hsp > 0) hsp += ren_state.font->glyph_w * sx;
+	if (vsp > 0) vsp += ren_state.font->glyph_h * sy;
+	for (int i = 0; text[i] != '\0'; ++i)
+	{
+		rect.x = (text[i] % ren_state.font->pitch) * ren_state.font->glyph_w;
+		rect.y = (text[i] / ren_state.font->pitch) * ren_state.font->glyph_h;
+		blit_scaled(ren_state.font->buffer, &rect, x + i * hsp, y + i * vsp, sx, sy);
+	}
+}
 

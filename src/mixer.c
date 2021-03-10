@@ -13,7 +13,7 @@
 static float buffer[MIX_BUFFER_SIZE];
 static mix_source_t* playing_sources = NULL;
 static float master_gain = 1.0;
-static atomic_flag lock = ATOMIC_FLAG_INIT;
+static atomic_flag lock_flag = ATOMIC_FLAG_INIT;
 
 /******************************************************************************
  * Reset, process
@@ -87,12 +87,12 @@ void mix_master_gain(float gain)
 
 void mix_lock(void)
 {
-	while (atomic_flag_test_and_set(&lock));
+	spinlock_lock(&lock_flag);	
 }
 
 void mix_unlock(void)
 {
-	atomic_flag_clear(&lock);
+	spinlock_unlock(&lock_flag);
 }
 
 /******************************************************************************
