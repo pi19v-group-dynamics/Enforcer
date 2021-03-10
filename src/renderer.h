@@ -134,7 +134,6 @@ void ren_ring(int x, int y, int r);
 void ren_recalc_transform(ren_transform_t* tr, const ren_rect_t* rect);
 void ren_buffer(const ren_buffer_t* buf, int x, int y, const ren_rect_t* rect, const ren_transform_t* tr);
 void ren_text(const char* text, int x, int y, int hsp, int vsp, int sx, int sy);
-void ren_batch(const ren_batch_t* bat, int x, int y);
 
 #endif /* RENDERER_H */
 

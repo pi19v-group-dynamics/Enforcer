@@ -276,14 +276,6 @@ inline void ren_free_font(ren_font_t* font)
 }
 
 /******************************************************************************
- * Buffer batch
- *****************************************************************************/
-
-ren_batch_t* ren_make_batch(int size_w, int size_h);
-void ren_push_batch(ren_batch_t* bat, int pos_x, int pos_y, int buf_x, int buf_y, const ren_buffer_t* buf);
-void ren_free_batch(ren_batch_t* bat);
-
-/******************************************************************************
  * Rendering routines
  *****************************************************************************/
 
