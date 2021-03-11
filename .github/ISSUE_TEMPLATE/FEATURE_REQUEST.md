@@ -1,5 +1,5 @@
 ---
-name: FEATURE_REQUEST
+name: Запрос на реализацию
 about: Предложите идею для этого проекта
 title: ''
 labels: enhancement
