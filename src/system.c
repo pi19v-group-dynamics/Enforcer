@@ -13,9 +13,6 @@
 #define SYS_INIT_WINDOW_TITLE NULL
 #endif /* SYS_INIT_WINDOWS_TITLE */
 
-/* Read only variables */
-int SYS_WINDOW_SCALE = SYS_INIT_WINDOW_SCALE;
-
 /* Internal usage variables */
 SDL_Window* _sys_window = NULL;
 SDL_Renderer* _sys_renderer = NULL;
@@ -36,13 +33,15 @@ __attribute__((constructor)) static void sys_setup(void)
 	/* Init SDL */
 	confirm(SDL_Init(SDL_INIT_EVERYTHING) == 0, "SDL initalization error! SDL_Error: %s", SDL_GetError());	
 	/* Init window */
-	confirm(_sys_window = SDL_CreateWindow(SYS_INIT_WINDOW_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, ren_screen->width * SYS_WINDOW_SCALE, ren_screen->height * SYS_WINDOW_SCALE, SDL_WINDOW_SHOWN),
+	confirm(_sys_window = SDL_CreateWindow(SYS_INIT_WINDOW_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, ren_screen->width * SYS_INIT_WINDOW_SCALE, ren_screen->height * SYS_INIT_WINDOW_SCALE, SDL_WINDOW_SHOWN),
 		"Window creation error! SDL error: %s",
 		SDL_GetError());
 	/* Init renderer */
 	confirm(_sys_renderer = SDL_CreateRenderer(_sys_window, -1, SDL_RENDERER_ACCELERATED),
 		"Renderer creation error! SDL error: %s",
 		SDL_GetError());
+	SDL_RenderSetLogicalSize(_sys_renderer, REN_WIDTH, REN_HEIGHT);
+	SDL_RenderSetIntegerScale(_sys_renderer, 1);
 	/* Init texture */
 	confirm(_sys_texture = SDL_CreateTexture(_sys_renderer, SYS_PIXEL_FMT, SDL_TEXTUREACCESS_STREAMING, ren_screen->width, ren_screen->height),
 		"Texture creation error! SDL error: %s",
@@ -83,13 +82,12 @@ __attribute__((always_inline)) inline void sys_title(const char* title)
 
 __attribute__((always_inline)) inline void sys_scale(int scale)
 {
-	SYS_WINDOW_SCALE = scale;
 	SDL_SetWindowSize(_sys_window, ren_screen->width * scale, ren_screen->height * scale);
 }
 
 __attribute__((always_inline)) inline void sys_fullscreen(bool enabled)
 {
-	SDL_SetWindowFullscreen(_sys_window, enabled ? SDL_WINDOW_FULLSCREEN : 0);
+	SDL_SetWindowFullscreen(_sys_window, enabled ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
 }
 
 static int process_events(void)
@@ -136,8 +134,8 @@ static int process_events(void)
 				memcpy(inp_text, e.edit.text, 32); 
 				break;
 			case SDL_MOUSEMOTION:
-				inp_mouse_x = e.motion.x / SYS_WINDOW_SCALE;
-				inp_mouse_y = e.motion.y / SYS_WINDOW_SCALE;
+				inp_mouse_x = e.motion.x;
+				inp_mouse_y = e.motion.y;
 				break;
 			case SDL_MOUSEWHEEL:
 				inp_wheel_x = e.wheel.x;

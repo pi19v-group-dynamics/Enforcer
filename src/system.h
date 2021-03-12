@@ -10,8 +10,6 @@
 /* Pixel format of audio sources */
 #define SYS_AUDIO_FMT AUDIO_F32
 
-extern int SYS_WINDOW_SCALE; /* read only */
-
 enum
 {
 	SYS_CLOSED, /* application closed */

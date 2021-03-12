@@ -39,7 +39,6 @@ int main(int argc, char** argv)
 	mix_reset(); /* reset mixer state */
 
 	sys_vsync(true);
-	sys_fullscreen(true);
 
 	/* Load font image */
 	ren_buffer_t* font = ren_load_buffer("bin/font.png");
@@ -77,10 +76,10 @@ int main(int argc, char** argv)
 				int py = (y - ren_screen->height / 2) % ren_screen->height;
 				ren_pixel_t pix = (ren_pixel_t)
 				{
-					( 128.0 + (128.0 * sin(t + px * SYS_WINDOW_SCALE / 16.0)) 
-					+ 128.0 + (128.0 * sin(t + py * SYS_WINDOW_SCALE / 16.0))
-					+ 128.0 + (128.0 * sin((px + py) * SYS_WINDOW_SCALE / 32.0 - t * 2))
-					+ 128.0 + (128.0 * sin(sqrt((px * px + py * py) * SYS_WINDOW_SCALE) / 8.0 - t * 3))) / 4
+					( 128.0 + (128.0 * sin(t + px * 4.0 / 16.0)) 
+					+ 128.0 + (128.0 * sin(t + py * 4.0 / 16.0))
+					+ 128.0 + (128.0 * sin((px + py) * 4.0 / 32.0 - t * 2))
+					+ 128.0 + (128.0 * sin(sqrt((px * px + py * py) * 4.0) / 8.0 - t * 3))) / 4
 				};
 				ren_screen->data[x + y * ren_screen->width] = (ren_pixel_t){.raw = pix.raw | (pix.raw << 8)};
 			}
