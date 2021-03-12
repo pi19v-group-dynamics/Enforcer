@@ -2,6 +2,20 @@
 #include "renderer.h"
 #include "mixer.h"
 #include "input.h"
+#include "event.h"
+
+static void mouse_click_handler1(void* args, void* udata)
+{
+	(void) udata;
+	log_trace("Handler 1 mouse clicked at x: %i, y: %i", *(int*)args, *((int*)args + 1));
+}
+
+static void mouse_click_handler2(void* args, void* udata)
+{
+	(void) udata;
+	(void) args;
+	log_trace("Handler 2 called");
+}
 
 int main(int argc, char** argv)
 {
@@ -10,9 +24,22 @@ int main(int argc, char** argv)
 
 	double dt; /* variable for storing time between two frames */
 	int state; /* state of application */
+
+	enum
+	{
+		MOUSE_CLICK = 0,
+		EVENT_COUNT
+	};
+
+	event_bus_t* bus = event_bus_create(EVENT_COUNT);
+	event_subscribe(bus, MOUSE_CLICK, mouse_click_handler1, NULL);
+	event_subscribe(bus, MOUSE_CLICK, mouse_click_handler2, NULL);
 	
 	ren_reset(); /* reset renderer state */
 	mix_reset(); /* reset mixer state */
+
+	sys_vsync(true);
+	sys_fullscreen(true);
 
 	/* Load font image */
 	ren_buffer_t* font = ren_load_buffer("bin/font.png");
@@ -33,6 +60,14 @@ int main(int argc, char** argv)
 	float t = 0.0f;
 	while ((state = sys_step(1.0 / 60.0, &dt)) != SYS_CLOSED)
 	{
+		if (inp_ms_down(LEFT))
+		{
+			event_notify(bus, MOUSE_CLICK, (int[2]){inp_mouse_x, inp_mouse_y});
+		}
+		if (inp_kb_down(ESCAPE))
+		{
+			break;
+		}
 		/* Render plasma */
 		for (int y = 0; y < ren_screen->height; ++y)
 		{
@@ -80,6 +115,7 @@ int main(int argc, char** argv)
 	ren_free_buffer(font);
 	ren_free_buffer(img);
 	ren_free_font(ren_state.font);
+	event_bus_destroy(bus);
 
 	return 0;
 }

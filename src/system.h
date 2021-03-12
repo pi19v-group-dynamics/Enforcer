@@ -10,9 +10,7 @@
 /* Pixel format of audio sources */
 #define SYS_AUDIO_FMT AUDIO_F32
 
-/* Read only variables, direct change isn't allowed */  
-extern int SYS_WINDOW_SCALE; 
-extern const char* SYS_WINDOW_TITLE;
+extern int SYS_WINDOW_SCALE; /* read only */
 
 enum
 {
@@ -23,7 +21,9 @@ enum
 
 void sys_title(const char* title); /* set window title */
 void sys_scale(int scale); /* set window scale */
+void sys_fullscreen(bool enabled); /* set window fullscreen */
 int sys_step(double time_step, double* dt); /* do time step */
+void sys_display(const void* pixels, int pitch); /* update screen pixels */
 void sys_vsync(bool enabled); /* set vsync enabled/disabled */
 void sys_mute(bool mute); /* mute/unmute audio device */
 

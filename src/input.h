@@ -16,7 +16,7 @@ extern char inp_text[32];
 /* Shortcut to check is key up/down */
 #define inp_kb_down(key) (inp_keyboard_down[SDL_SCANCODE_##key])
 #define inp_kb_up(key)   (!inp_kb_down(key))
-#define inp_ms_down(key) (inp_mouse_down[SDL_SCANCODE_##key])
+#define inp_ms_down(key) (inp_mouse_down[SDL_BUTTON_##key])
 #define inp_ms_up(key)   (!in_ms_down(key))
 
 /* Old position of mouse, wheel state */

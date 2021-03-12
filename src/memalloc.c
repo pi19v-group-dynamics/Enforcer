@@ -1,6 +1,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 
+#ifdef MEMALLOC_LOG
+#pragma message("MEMALLOC_LOG defined, due many log prints performance may be reduced!")
+#endif /* MEMALLOC_LOG */
+
 uint_fast32_t _memalloc_leaks = 0;
 
 __attribute__((destructor(101))) static void memalloc_status(void)

@@ -1,5 +1,4 @@
 #include "renderer.h"
-#include <SDL2/SDL.h>
 #include <string.h>
 #include <stdatomic.h>
 #include "system.h"
@@ -82,16 +81,11 @@ void ren_reset(void)
 
 void ren_flip(void)
 {
-	extern SDL_Renderer* _sys_renderer;
-	extern SDL_Texture* _sys_texture;
 	spinlock_lock(&lock_flag);
 	const void* back = ren_screen->data;
 	buf_cnt = (buf_cnt + 1) & 1;
 	ren_screen->data = buffers[buf_cnt];
-	SDL_UpdateTexture(_sys_texture, NULL, back, sizeof(ren_pixel_t[REN_WIDTH]));
-	SDL_RenderClear(_sys_renderer);
-	SDL_RenderCopy(_sys_renderer, _sys_texture, NULL, NULL);
-	SDL_RenderPresent(_sys_renderer);
+	sys_display(back, sizeof(ren_pixel_t[REN_WIDTH]));
 	spinlock_unlock(&lock_flag);
 }
 

@@ -15,7 +15,6 @@
 
 /* Read only variables */
 int SYS_WINDOW_SCALE = SYS_INIT_WINDOW_SCALE;
-const char* SYS_WINDOW_TITLE = SYS_INIT_WINDOW_TITLE;
 
 /* Internal usage variables */
 SDL_Window* _sys_window = NULL;
@@ -37,7 +36,7 @@ __attribute__((constructor)) static void sys_setup(void)
 	/* Init SDL */
 	confirm(SDL_Init(SDL_INIT_EVERYTHING) == 0, "SDL initalization error! SDL_Error: %s", SDL_GetError());	
 	/* Init window */
-	confirm(_sys_window = SDL_CreateWindow(SYS_WINDOW_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, ren_screen->width * SYS_WINDOW_SCALE, ren_screen->height * SYS_WINDOW_SCALE, SDL_WINDOW_SHOWN),
+	confirm(_sys_window = SDL_CreateWindow(SYS_INIT_WINDOW_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, ren_screen->width * SYS_WINDOW_SCALE, ren_screen->height * SYS_WINDOW_SCALE, SDL_WINDOW_SHOWN),
 		"Window creation error! SDL error: %s",
 		SDL_GetError());
 	/* Init renderer */
@@ -79,7 +78,6 @@ __attribute__((destructor)) static void sys_close(void)
 
 __attribute__((always_inline)) inline void sys_title(const char* title)
 {
-	SYS_WINDOW_TITLE = title;
 	SDL_SetWindowTitle(_sys_window, title);
 }
 
@@ -87,6 +85,11 @@ __attribute__((always_inline)) inline void sys_scale(int scale)
 {
 	SYS_WINDOW_SCALE = scale;
 	SDL_SetWindowSize(_sys_window, ren_screen->width * scale, ren_screen->height * scale);
+}
+
+__attribute__((always_inline)) inline void sys_fullscreen(bool enabled)
+{
+	SDL_SetWindowFullscreen(_sys_window, enabled ? SDL_WINDOW_FULLSCREEN : 0);
 }
 
 static int process_events(void)
@@ -170,6 +173,14 @@ int sys_step(double time_step, double* dt)
 	}
 	*dt = delta;
 	return process_events();
+}
+
+void sys_display(const void* pixels, int pitch)
+{
+	SDL_UpdateTexture(_sys_texture, NULL, pixels, pitch);
+	SDL_RenderClear(_sys_renderer);
+	SDL_RenderCopy(_sys_renderer, _sys_texture, NULL, NULL);
+	SDL_RenderPresent(_sys_renderer);
 }
 
 __attribute__((always_inline)) inline void sys_mute(bool state)
