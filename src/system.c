@@ -145,6 +145,17 @@ static int process_events(void)
 				break;
 		}
 	}
+	/* Limit mouse position in screen */
+	inp_mouse_x = inp_mouse_x < 0
+	            ? 0 
+	            : inp_mouse_x >= REN_WIDTH
+	            ? REN_WIDTH - 1
+	            : inp_mouse_x;
+	inp_mouse_y = inp_mouse_y < 0
+	            ? 0 
+	            : inp_mouse_y >= REN_HEIGHT
+	            ? REN_HEIGHT - 1
+	            : inp_mouse_y;
 	inp_mouse_dx = inp_mouse_x - inp_mouse_dx;
 	inp_mouse_dy = inp_mouse_y - inp_mouse_dy;
 	inp_wheel_dx = inp_wheel_x - inp_wheel_dx;
