@@ -23,7 +23,7 @@ struct event_bus
  * Event bus create/destroy
  *****************************************************************************/
 
-event_bus_t* event_bus_create(unsigned num_events)
+event_bus_t* event_make_bus(unsigned num_events)
 {
 	event_bus_t* bus = calloc(1, sizeof(event_bus_t) + sizeof(event_listener_t*[num_events]));
 	spinlock_unlock(&bus->lock_flag);
@@ -31,7 +31,7 @@ event_bus_t* event_bus_create(unsigned num_events)
 	return bus;
 }
 
-void event_bus_destroy(event_bus_t* bus)
+void event_free_bus(event_bus_t* bus)
 {
 	for (unsigned i = 0; i < bus->num_events; ++i)
 	{

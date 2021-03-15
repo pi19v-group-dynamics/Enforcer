@@ -17,6 +17,37 @@ static void mouse_click_handler2(void* args, void* udata)
 	log_trace("Handler 2 called");
 }
 
+static float t = 0.0f;
+
+static void print_text(void)
+{
+	static const char str1[] = "$ vi main.c";
+	static const char str2[] = "#include <stdio.h>\n\nint main(void)\n{\n\tputs(\"Hello, world!\");\n\treturn 0;\n}";
+	static const char str3[] = "$ make";
+	ren_state.blend = ren_blend_alpha;
+	ren_state.color.raw = 0xFF00FF00;
+	size_t ts = t * 4;
+	if (ts == 0)
+	{
+	}
+	else if (ts <= sizeof(str1))
+	{
+		ren_printf(str1, ts, 0, 0, 0, &(ren_transform_t){.sx = 1, .sy = 1});
+	}
+	else if (ts - sizeof(str1) <= sizeof(str2))
+	{
+		ren_printf(str2, ts - sizeof(str1), 0, 0, 0, &(ren_transform_t){.sx = 1, .sy = 1});
+	}
+	else if (ts - sizeof(str1) - sizeof(str2) <= sizeof(str3))
+	{
+		ren_printf(str3, ts - sizeof(str1) - sizeof(str2), 0, 0, 0, &(ren_transform_t){.sx = 1, .sy = 1});
+	}
+	else
+	{
+		ren_print("Hello, world!", 0, 0, 0, &(ren_transform_t){.sx = 1, .sy = 1});
+	} 
+}
+
 int main(int argc, char** argv)
 {
 	(void) argc;
@@ -31,7 +62,7 @@ int main(int argc, char** argv)
 		EVENT_COUNT
 	};
 
-	event_bus_t* bus = event_bus_create(EVENT_COUNT);
+	event_bus_t* bus = event_make_bus(EVENT_COUNT);
 	event_subscribe(bus, MOUSE_CLICK, mouse_click_handler1, NULL);
 	event_subscribe(bus, MOUSE_CLICK, mouse_click_handler2, NULL);
 	
@@ -39,13 +70,14 @@ int main(int argc, char** argv)
 	mix_reset(); /* reset mixer state */
 
 	sys_vsync(true);
+	sys_fullscreen(true);
 
 	/* Load font image */
-	ren_buffer_t* font = ren_load_buffer("bin/font.png");
+	ren_bitmap_t* font = ren_load_bitmap("bin/font.png");
 	/* Make font and set it as primary */
 	ren_state.font = ren_make_font(font, 3, 5);
 	/* Load test image */
-	ren_buffer_t* img = ren_load_buffer("bin/asset.png");
+	ren_bitmap_t* img = ren_load_bitmap("bin/asset.png");
 	ren_transform_t img_tr = /* buffer transformation */
 	{
 		.ang = 0.0f,
@@ -55,8 +87,14 @@ int main(int argc, char** argv)
 		.oy = 8.0f
 	};
 	ren_rect_t img_rect = {0, 0, 16, 16}; /* visible part of image */
+	/* Init batch */
+	ren_batch_t* bat = ren_make_batch(img, &img_tr, &(ren_rect_t){0, 0, 16, 16}, 4);
+	ren_batch_add(bat, -32, 0);
+	ren_batch_add(bat, +32, 0);
+	ren_batch_add(bat, 0, -32);
+	ren_batch_add(bat, 0, +32);
 
-	float t = 0.0f;
+	ren_state.font->tabwidth = 2;
 	while ((state = sys_step(1.0 / 60.0, &dt)) != SYS_CLOSED)
 	{
 		if (inp_ms_down(LEFT))
@@ -76,12 +114,12 @@ int main(int argc, char** argv)
 				int py = (y - ren_screen->height / 2) % ren_screen->height;
 				ren_pixel_t pix = (ren_pixel_t)
 				{
-					( 128.0 + (128.0 * sin(t + px * 4.0 / 16.0)) 
-					+ 128.0 + (128.0 * sin(t + py * 4.0 / 16.0))
+					( 128.0 + (128.0 * sin(t + px * 4.0 / 36.0)) 
+					+ 128.0 + (128.0 * sin(t + py * 4.0 / 37.0))
 					+ 128.0 + (128.0 * sin((px + py) * 4.0 / 32.0 - t * 2))
-					+ 128.0 + (128.0 * sin(sqrt((px * px + py * py) * 4.0) / 8.0 - t * 3))) / 4
+					+ 128.0 + (128.0 * sin(sqrt((px * px + py * py) * 4.0) / 8.0 - t * 3))) / 5
 				};
-				ren_screen->data[x + y * ren_screen->width] = (ren_pixel_t){.raw = pix.raw | (pix.raw << 8)};
+				ren_screen->data[x + y * ren_screen->width] = (ren_pixel_t){.raw = pix.raw | (pix.raw << 16)};
 			}
 		}
 		/* Calculate transform of image */
@@ -91,30 +129,23 @@ int main(int argc, char** argv)
 		ren_recalc_transform(&img_tr, &img_rect);		
 		/* Render image */
 		ren_state.blend = img_tr.sx + img_tr.sy > 3.5f ? ren_blend_alpha : ren_blend_lighten;
-		ren_buffer(img, REN_WIDTH >> 1, REN_HEIGHT >> 1, &img_rect, &img_tr);
-		/* Render vertical text */
-		ren_state.blend = ren_blend_add;
-		ren_state.color.raw = 0xFFFFAA00;
-		ren_text("Stretched text!", 10, 10, 0, 1, 2, 1);
-		/* Render horizontal text */
-		ren_state.blend = ren_blend_alpha;
-		ren_state.color.raw = 0xFFFFFFFF;
-		ren_text("Pretty horizontal text!", 20, REN_HEIGHT - 10, 1, 0, 1, 1);
+		ren_flush(bat, REN_WIDTH >> 1, REN_HEIGHT >> 1);
+		/* Print text */
+		print_text();		
 		/* Render lamp */
 		ren_state.blend = ren_blend_add;
 		ren_state.color.raw = 0xFF476020;
 		ren_circ(inp_mouse_x, inp_mouse_y, 4);
-		ren_circ(inp_mouse_x, inp_mouse_y, 10);
-		ren_circ(inp_mouse_x, inp_mouse_y, 18);
 		/* End of frame */
 		ren_flip();
 		t += 0.02f;
 	}
 
-	ren_free_buffer(font);
-	ren_free_buffer(img);
+	ren_free_bitmap(font);
+	ren_free_bitmap(img);
 	ren_free_font(ren_state.font);
-	event_bus_destroy(bus);
+	ren_free_batch(bat);
+	event_free_bus(bus);
 
 	return 0;
 }

@@ -8,8 +8,8 @@ typedef void (*event_handler_t)(void* args, void* udata);
  * Event bus create/destroy
  *****************************************************************************/
 
-event_bus_t* event_bus_create(unsigned num_events);
-void event_bus_destroy(event_bus_t* bus);
+event_bus_t* event_make_bus(unsigned num_events);
+void event_free_bus(event_bus_t* bus);
 
 /******************************************************************************
  * Event handler subsciption

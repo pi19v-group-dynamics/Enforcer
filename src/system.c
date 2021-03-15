@@ -33,7 +33,7 @@ __attribute__((constructor)) static void sys_setup(void)
 	/* Init SDL */
 	confirm(SDL_Init(SDL_INIT_EVERYTHING) == 0, "SDL initalization error! SDL_Error: %s", SDL_GetError());	
 	/* Init window */
-	confirm(_sys_window = SDL_CreateWindow(SYS_INIT_WINDOW_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, ren_screen->width * SYS_INIT_WINDOW_SCALE, ren_screen->height * SYS_INIT_WINDOW_SCALE, SDL_WINDOW_SHOWN),
+	confirm(_sys_window = SDL_CreateWindow(SYS_INIT_WINDOW_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, ren_screen->width, ren_screen->height, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE),
 		"Window creation error! SDL error: %s",
 		SDL_GetError());
 	/* Init renderer */
@@ -78,11 +78,6 @@ __attribute__((destructor)) static void sys_close(void)
 __attribute__((always_inline)) inline void sys_title(const char* title)
 {
 	SDL_SetWindowTitle(_sys_window, title);
-}
-
-__attribute__((always_inline)) inline void sys_scale(int scale)
-{
-	SDL_SetWindowSize(_sys_window, ren_screen->width * scale, ren_screen->height * scale);
 }
 
 __attribute__((always_inline)) inline void sys_fullscreen(bool enabled)

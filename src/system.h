@@ -18,7 +18,6 @@ enum
 };
 
 void sys_title(const char* title); /* set window title */
-void sys_scale(int scale); /* set window scale */
 void sys_fullscreen(bool enabled); /* set window fullscreen */
 int sys_step(double time_step, double* dt); /* do time step */
 void sys_display(const void* pixels, int pitch); /* update screen pixels */

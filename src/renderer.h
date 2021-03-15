@@ -5,11 +5,11 @@
 #include <stdint.h>
 
 #ifndef REN_WIDTH
-#define REN_WIDTH  136
+#define REN_WIDTH  160
 #endif /* !REN_WIDTH */
 
 #ifndef REN_HEIGHT
-#define REN_HEIGHT 128
+#define REN_HEIGHT 120
 #endif /* !REN_HEIGHT */
 
 /******************************************************************************
@@ -44,6 +44,7 @@ typedef struct ren_transform
 	float ang;        /* rotation angle */
 	float sx, sy;     /* scaling factor */
 	float ox, oy;     /* relative offset (in pixels) */
+	float kx, ky;     /* shearing factor */
 	/* Auto calculated fields */
 	float sin, cos;   /* sin(ang), cos(ang) */
 	int beg_x, beg_y; /* top left corner of bound rectangle */
@@ -51,18 +52,20 @@ typedef struct ren_transform
 }
 ren_transform_t;
 
-typedef struct ren_buffer
+typedef struct ren_bitmap
 {
-	int width, height; /* width and height of buffer*/
-	ren_pixel_t* data; /* buffer pixels */
+	int width, height; /* width and height of bitmap*/
+	ren_pixel_t* data; /* bitmap pixels */
 }
-ren_buffer_t;
+ren_bitmap_t;
 
 typedef struct ren_font
 {
 	int pitch;                  /* number glyphs in line */
 	int glyph_w, glyph_h;       /* size of glyph (monospace font) */
-	const ren_buffer_t* buffer; /* source font image */
+	int vspacing, hspacing;     /* vertical, horizonatal spacing */
+	int tabwidth;               /* tab width */
+	const ren_bitmap_t* bitmap; /* source font image */
 }
 ren_font_t;
 
@@ -73,21 +76,31 @@ typedef struct ren_state
 	ren_blend_t blend;
 	ren_rect_t clip;
 	ren_font_t* font;
-	ren_buffer_t* target;
+	ren_bitmap_t* target;
 }
 ren_state_t;
+
+typedef struct ren_batch
+{
+	const ren_bitmap_t* bitmap;
+	const ren_transform_t* transform;
+	const ren_rect_t* rect;
+	unsigned capacity, count;
+	int positions[];
+}
+ren_batch_t;
 
 /******************************************************************************
  * Renderer state
  *****************************************************************************/
 
-extern ren_buffer_t* const ren_screen; /* virtual framebuffer */
+extern ren_bitmap_t* const ren_screen; /* virtual framebitmap */
 extern ren_state_t ren_state; /* render state */
 
 ren_state_t ren_begin(void); /* lock renderer state */
 void ren_end(ren_state_t st); /* unlock render state */
 void ren_reset(void); /* resets render state */
-void ren_flip(void); /* flip ren_screen buffers and render front buffer */
+void ren_flip(void); /* flip ren_screen bitmaps and render front bitmap */
 
 /******************************************************************************
  * Blend functions
@@ -103,21 +116,29 @@ void ren_blend_darken(ren_pixel_t* dst, ren_pixel_t src);
 void ren_blend_screen(ren_pixel_t* dst, ren_pixel_t src);
 
 /******************************************************************************
- * Image buffer
+ * Image bitmap
  *****************************************************************************/
 
-ren_buffer_t* ren_blank_buffer(int width, int height);
-ren_buffer_t* ren_copy_buffer(const ren_buffer_t* src);
-ren_buffer_t* ren_shared_buffer(void* data, int width, int height);
-ren_buffer_t* ren_load_buffer(const char filename[static 2]);
-void ren_free_buffer(ren_buffer_t* buf);
+ren_bitmap_t* ren_blank_bitmap(int width, int height);
+ren_bitmap_t* ren_copy_bitmap(const ren_bitmap_t* src);
+ren_bitmap_t* ren_shared_bitmap(void* data, int width, int height);
+ren_bitmap_t* ren_load_bitmap(const char filename[static 2]);
+void ren_free_bitmap(ren_bitmap_t* bmp);
 
 /******************************************************************************
  * Font
  *****************************************************************************/
 
-ren_font_t* ren_make_font(const ren_buffer_t* buf, int glyph_w, int glyph_h);
+ren_font_t* ren_make_font(const ren_bitmap_t* bmp, int glyph_w, int glyph_h);
 void ren_free_font(ren_font_t* font);
+
+/******************************************************************************
+ * Batch 
+ *****************************************************************************/
+
+ren_batch_t* ren_make_batch(const ren_bitmap_t* bmp, const ren_transform_t* tr, const ren_rect_t* rect, unsigned cap);
+void ren_batch_add(ren_batch_t* bat, int x, int y);
+void ren_free_batch(ren_batch_t* bat);
 
 /******************************************************************************
  * Rendering routines
@@ -130,10 +151,12 @@ void ren_rect(int x, int y, int w, int h);
 void ren_box(int x, int y, int w, int h);
 void ren_line(int x0, int y0, int x1, int x2);
 void ren_circ(int x, int y, int r); 
-void ren_ring(int x, int y, int r); 
+void ren_ring(int x, int y, int r);
 void ren_recalc_transform(ren_transform_t* tr, const ren_rect_t* rect);
-void ren_buffer(const ren_buffer_t* buf, int x, int y, const ren_rect_t* rect, const ren_transform_t* tr);
-void ren_text(const char* text, int x, int y, int hsp, int vsp, int sx, int sy);
+void ren_blit(const ren_bitmap_t* bmp, int x, int y, const ren_rect_t* rect, const ren_transform_t* tr);
+void ren_print(const char txt[static 2], int len, int x, int y, const ren_transform_t* tr); 
+void ren_printf(const char txt[static 2], int len, int limit, int x, int y, const ren_transform_t* tr, ...);
+void ren_flush(const ren_batch_t* bat, int x, int y);
 
 #endif /* RENDERER_H */
 
