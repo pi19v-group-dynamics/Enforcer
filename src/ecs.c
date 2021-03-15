@@ -4,8 +4,8 @@
 
 typedef struct ecs_info
 {
-	ecs_component_mask_t mask;
-	char* component_data;
+	ecs_mask_t mask;
+	char data[];
 }
 ecs_info_t;
 
@@ -80,69 +80,45 @@ ecs_entity_t ecs_create(ecs_world_t* world)
 	return world->index;
 }
 
+void ecs_destroy(ecs_world_t* world, ecs_entity_t ent)
+{
+	world->free[ent] = ECS_INVALID_ENTITY;
+} 
+
 #define get_info(world, ent) \
 	((ecs_info_t*)((char*)world->infos + ent * world->info_size))
 
-void ecs_attach(ecs_world_t* world, ecs_entity_t ent, int n, ...)
+void ecs_attach(ecs_world_t* world, ecs_entity_t ent, ecs_mask_t mask)
 {
-	va_list va;
-	ecs_info_t* info = get_info(world, ent);
-	va_start(va, n);
-	while (n-- > 0)
-	{
-		info->mask |= (1 << va_arg(va, int));
-	}
-	va_end(va);
+	get_info(world, ent)->mask |= mask;
 }
 
-void ecs_detach(ecs_world_t* world, ecs_entity_t ent, int n, ...)
+void ecs_detach(ecs_world_t* world, ecs_entity_t ent, ecs_mask_t mask)
 {
-	va_list va;
-	va_start(va, n);
-	int mask = 0;
-	while (n-- > 0)
-	{
-		mask |= (1 << va_arg(va, int));
-	}
 	get_info(world, ent)->mask &= ~mask;
-	va_end(va);
 }
 
-bool ecs_has(ecs_world_t* world, ecs_entity_t ent, int n, ...)
+bool ecs_has(ecs_world_t* world, ecs_entity_t ent, ecs_mask_t mask)
 {
-	va_list va;
-	va_start(va, n);
-	int mask = 0;
-	while (n-- > 0)
-	{
-		mask |= (1 << va_arg(va, int));
-	}
-	va_end(va);
-	return get_info(world, ent)->mask & mask;
+	return (get_info(world, ent)->mask & mask) == mask;
 }
 
 void* ecs_get(ecs_world_t* world, ecs_entity_t ent, int comp)
 {
-	return (void*)(get_info(world, ent)->component_data + world->offsets[comp]);
+	return (void*)(get_info(world, ent)->data + world->offsets[comp]); 
 }
+
+#undef get_info
 
 /******************************************************************************
  * System utilities
  *****************************************************************************/
 
-void ecs_process(ecs_world_t* world, ecs_callback_t cb, int n, ...)
+void ecs_process(ecs_world_t* world, ecs_callback_t cb, ecs_mask_t mask)
 {
-	va_list va;
-	va_start(va, n);
-	unsigned mask = 0;	
-	while (n-- > 0)
-	{
-		mask |= (1 << va_arg(va, int));
-	}
-	va_end(va);
 	for (ecs_entity_t i = 0; i < world->occupied; ++i)
 	{
-		if ((get_info(world, i)->mask & mask) == mask)
+		if (ecs_has(world, i, mask))
 		{
 			cb(world, i);
 		}
