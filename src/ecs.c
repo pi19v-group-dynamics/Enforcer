@@ -2,20 +2,13 @@
 #include "memalloc.h"
 #include <stdarg.h>
 
-typedef struct ecs_info
-{
-	ecs_mask_t mask;
-	char data[];
-}
-ecs_info_t;
-
 struct ecs_world
 {
 	int num_components;
 	size_t info_size;
 	ecs_entity_t* free;
 	ecs_entity_t capacity, occupied, index;
-	ecs_info_t* infos;
+	char* infos;
 	size_t offsets[];
 };
 
@@ -40,7 +33,7 @@ ecs_world_t* ecs_make_world(int num_components, ...)
 		world->offsets[i] = world->info_size;
 		world->info_size += va_arg(va, size_t);
 	}
-	world->info_size += sizeof(ecs_info_t);
+	world->info_size += sizeof(ecs_mask_t);
 	va_end(va);
 	return world;
 }
@@ -76,7 +69,7 @@ ecs_entity_t ecs_create(ecs_world_t* world)
 	{
 		world->index = (world->index + 1) % world->capacity;
 	}
-	++world->capacity;
+	++world->occupied;
 	return world->index;
 }
 
@@ -85,27 +78,27 @@ void ecs_destroy(ecs_world_t* world, ecs_entity_t ent)
 	world->free[ent] = ECS_INVALID_ENTITY;
 } 
 
-#define get_info(world, ent) \
-	((ecs_info_t*)((char*)world->infos + ent * world->info_size))
+#define get_info_mask(world, ent) (*(ecs_mask_t*)((world)->infos + (ent) * (world)->info_size))
+#define get_info_data(world, ent) ((world)->infos + (ent) * (world)->info_size + sizeof(ecs_mask_t))
 
 void ecs_attach(ecs_world_t* world, ecs_entity_t ent, ecs_mask_t mask)
 {
-	get_info(world, ent)->mask |= mask;
+	get_info_mask(world, ent) |= mask;
 }
 
 void ecs_detach(ecs_world_t* world, ecs_entity_t ent, ecs_mask_t mask)
 {
-	get_info(world, ent)->mask &= ~mask;
+	get_info_mask(world, ent) &= ~mask;
 }
 
 bool ecs_has(ecs_world_t* world, ecs_entity_t ent, ecs_mask_t mask)
 {
-	return (get_info(world, ent)->mask & mask) == mask;
+	return (get_info_mask(world, ent) & mask) == mask;
 }
 
 void* ecs_get(ecs_world_t* world, ecs_entity_t ent, int comp)
 {
-	return (void*)(get_info(world, ent)->data + world->offsets[comp]); 
+	return (void*)(get_info_data(world, ent) + world->offsets[comp]);
 }
 
 #undef get_info
@@ -118,7 +111,7 @@ void ecs_process(ecs_world_t* world, ecs_callback_t cb, ecs_mask_t mask)
 {
 	for (ecs_entity_t i = 0; i < world->occupied; ++i)
 	{
-		if (ecs_has(world, i, mask))
+		if (world->free[i] == ECS_INVALID_ENTITY && ecs_has(world, i, mask))
 		{
 			cb(world, i);
 		}

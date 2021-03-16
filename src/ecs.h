@@ -4,8 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef uint_least32_t ecs_entity_t;
 typedef uint_least64_t ecs_mask_t;
+typedef uint_least32_t ecs_entity_t;
 typedef struct ecs_world ecs_world_t;
 typedef void (*ecs_callback_t)(ecs_world_t* world, ecs_entity_t ent);
 

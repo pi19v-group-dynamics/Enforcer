@@ -44,7 +44,6 @@ typedef struct ren_transform
 	float ang;        /* rotation angle */
 	float sx, sy;     /* scaling factor */
 	float ox, oy;     /* relative offset (in pixels) */
-	float kx, ky;     /* shearing factor */
 	/* Auto calculated fields */
 	float sin, cos;   /* sin(ang), cos(ang) */
 	int beg_x, beg_y; /* top left corner of bound rectangle */

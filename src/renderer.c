@@ -458,11 +458,6 @@ void ren_recalc_transform(ren_transform_t* tr, const ren_rect_t* rect)
 	/* Precalculate factors */
 	float sin_sx = tr->sin * tr->sx, sin_sy = tr->sin * tr->sy;
 	float cos_sx = tr->cos * tr->sx, cos_sy = tr->cos * tr->sy;
-	/* Calculate transform */
-	float m00 = cos_sx + sin_sy * tr->kx;
-	float m01 = cos_sx * tr->ky + sin_sy;
-	float m10 = cos_sy * tr->kx - sin_sx;
-	float m11 = cos_sy - sin_sx * tr->ky;
 	/* Translate points to origin */
 	float x0 =          -tr->ox, y0 =          -tr->oy;
 	float x1 = rect->w - tr->ox, y1 =          -tr->oy;
@@ -472,8 +467,8 @@ void ren_recalc_transform(ren_transform_t* tr, const ren_rect_t* rect)
 	/* Rotate points around origin */
 	#define rotate(n) do {                    \
 			float tmpx = x##n;                    \
-			x##n = m00 * tmpx + m01 * y##n; \
-			y##n = m10 * tmpx + m11 * y##n; \
+			x##n = cos_sx * tmpx + sin_sy * y##n; \
+			y##n = cos_sy * y##n - sin_sx * tmpx; \
 		} while (0)
 	rotate(0); rotate(1); rotate(2); rotate(3);
 	#undef rotate
