@@ -49,3 +49,4 @@ typedef union
 unit_comp_t;
 
 #endif /* COMPONENTS_H */
+
