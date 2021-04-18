@@ -5,11 +5,11 @@
 #include <stdint.h>
 
 #ifndef REN_WIDTH
-#define REN_WIDTH  160
+#define REN_WIDTH  320
 #endif /* !REN_WIDTH */
 
 #ifndef REN_HEIGHT
-#define REN_HEIGHT 120
+#define REN_HEIGHT 240
 #endif /* !REN_HEIGHT */
 
 /******************************************************************************
@@ -79,13 +79,20 @@ typedef struct ren_state
 }
 ren_state_t;
 
+typedef struct ren_batch_data
+{
+	int px, py;
+	int bx, by;
+}
+ren_batch_data_t;
+
 typedef struct ren_batch
 {
 	const ren_bitmap_t* bitmap;
-	const ren_transform_t* transform;
-	const ren_rect_t* rect;
-	unsigned capacity, count;
-	int positions[];
+	ren_transform_t* transform;
+	int width, height;
+	unsigned count;
+	ren_batch_data_t* data;
 }
 ren_batch_t;
 
@@ -132,12 +139,10 @@ ren_font_t* ren_make_font(const ren_bitmap_t* bmp, int glyph_w, int glyph_h);
 void ren_free_font(ren_font_t* font);
 
 /******************************************************************************
- * Batch 
+ * Batch
  *****************************************************************************/
 
-ren_batch_t* ren_make_batch(const ren_bitmap_t* bmp, const ren_transform_t* tr, const ren_rect_t* rect, unsigned cap);
-void ren_batch_add(ren_batch_t* bat, int x, int y);
-void ren_free_batch(ren_batch_t* bat);
+void ren_update_batch(ren_batch_t* bat);
 
 /******************************************************************************
  * Rendering routines

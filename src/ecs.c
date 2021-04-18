@@ -101,7 +101,8 @@ void* ecs_get(ecs_world_t* world, ecs_entity_t ent, int comp)
 	return (void*)(get_info_data(world, ent) + world->offsets[comp]);
 }
 
-#undef get_info
+#undef get_info_data
+#undef get_info_mask
 
 /******************************************************************************
  * System utilities

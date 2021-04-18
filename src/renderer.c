@@ -274,35 +274,12 @@ inline void ren_free_font(ren_font_t* font)
 }
 
 /******************************************************************************
- * Batch 
+ * Batch
  *****************************************************************************/
 
-ren_batch_t* ren_make_batch(const ren_bitmap_t* bmp, const ren_transform_t* tr, const ren_rect_t* rect, unsigned cap)
+void ren_update_batch(ren_batch_t* bat)
 {
-	ren_batch_t* bat = malloc(sizeof(ren_batch_t) + (sizeof(int[cap]) << 1));
-	bat->bitmap = bmp;
-	bat->transform = tr;
-	bat->rect = rect;
-	bat->capacity = cap;
-	bat->count = 0;
-	return bat;
-}
-
-void ren_batch_add(ren_batch_t* bat, int x, int y)
-{
-	if (bat->count >= bat->capacity)
-	{
-		++bat->capacity;
-		bat = realloc(bat, sizeof(ren_batch_t) + (sizeof(int[bat->capacity]) << 1));	
-	}
-	bat->positions[(bat->count << 1)    ] = x;
-	bat->positions[(bat->count << 1) + 1] = y;
-	++bat->count;
-}
-
-inline void ren_free_batch(ren_batch_t* bat)
-{
-	free(bat);
+	ren_recalc_transform(bat->transform, &(ren_rect_t){0, 0, bat->width, bat->height});
 }
 
 /******************************************************************************
@@ -594,24 +571,31 @@ void ren_printf(const char txt[static 2], int len, int limit, int x, int y, cons
 
 void ren_flush(const ren_batch_t* bat, int x, int y)
 {
+	ren_state.translate.x += x;
+	ren_state.translate.y += y;
 	/* For each point of boundary */
 	for (int ty = bat->transform->beg_y; ty < bat->transform->end_y; ++ty)
 	{
+		ren_state.translate.y += ty;
 		for (int tx = bat->transform->beg_x; tx < bat->transform->end_x; ++tx)
 		{
+			ren_state.translate.x += tx;
 			/* Derotate point */
 			float drx = (tx * bat->transform->cos - ty * bat->transform->sin) / bat->transform->sx + bat->transform->ox;
 			float dry = (tx * bat->transform->sin + ty * bat->transform->cos) / bat->transform->sy + bat->transform->oy;
-			if (drx >= 0.0f && dry >= 0.0f && drx < bat->rect->w && dry < bat->rect->h)
+			if (drx >= 0.0f && dry >= 0.0f && drx < bat->width && dry < bat->height)
 			{
-				ren_state.color = bat->bitmap->data[(int)drx + bat->rect->x + ((int)dry + bat->rect->y) * bat->bitmap->width];
 				for (unsigned i = 0; i < bat->count; ++i)
 				{
-					ren_plot(bat->positions[(i << 1)    ] + x + tx,
-					         bat->positions[(i << 1) + 1] + y + ty);
+					ren_state.color = bat->bitmap->data[(int)drx + bat->data[i].bx + ((int)dry + bat->data[i].by) * bat->bitmap->width];
+					ren_plot(bat->data[i].px, bat->data[i].py);
 				}
 			}
+			ren_state.translate.x -= tx;
 		} 
+		ren_state.translate.y -= ty;
 	}
+	ren_state.translate.x -= x;
+	ren_state.translate.y -= y;
 }
 

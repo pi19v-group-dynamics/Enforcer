@@ -162,10 +162,9 @@ static int process_events(void)
 
 int sys_step(double time_step, double* dt)
 {
-	static double last = 0.0, now = 0.0, wait = 0.0, delta = 0.0;
-	now = (double)SDL_GetTicks() * INV_MILLIS;
-	delta = now - last;
-	wait = time_step - delta;
+	static double last = 0.0, prev = 0.0;
+	double now = (double)SDL_GetTicks() * INV_MILLIS;
+	double wait = time_step - (now - last);
 	last += time_step;
 	if (wait > 0)
 	{
@@ -175,7 +174,8 @@ int sys_step(double time_step, double* dt)
 	{
 		last = now;
 	}
-	*dt = delta;
+	*dt = now - prev;
+	prev = now;
 	return process_events();
 }
 
