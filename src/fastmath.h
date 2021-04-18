@@ -8,26 +8,22 @@
 #endif /* FASTMATH_LUT_SHIFT */
 
 #define FASTMATH_LUT_RANGE (1 << FASTMATH_LUT_SHIFT)
-#define FASTMATH_LUT_SIZE (sizeof(float_t[FASTMATH_LUT_RANGE]))
+#define FASTMATH_LUT_MASK  (FASTMATH_LUT_RANGE - 1)
 
-__attribute__((always_inline, pure)) inline float_t fastsin(float_t x)
+float_t fastsin(float_t x);
+float_t fastcos(float_t x);
+float_t fasttan(float_t x);
+
+__attribute__((always_inline, pure)) inline float_t fastsqrt(float_t x)
 {
-	return sin(x);	
+	void* ptr = &x;
+	unsigned i = (*(unsigned*)ptr + (127 << 23)) >> 1;
+	return *(float*)(ptr = &i);
 }
 
-__attribute__((always_inline, pure)) inline float_t fastcos(float_t x)
+__attribute__((always_inline, pure)) inline float_t fastlerp(float_t a, float_t b, float_t t)
 {
-	return cos(x);
-}
-
-__attribute__((always_inline, pure)) inline float_t fasttan(float_t x)
-{
-	return tan(x);
-}
-
-__attribute__((always_inline, pure)) inline float_t fastatan2(float_t y, float_t x)
-{
-	return atan2(y, x);
+	return a + (b - a) * t;
 }
 
 #endif /* FASTMATH_H */
