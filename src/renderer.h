@@ -68,7 +68,9 @@ typedef struct ren_font
 }
 ren_font_t;
 
-typedef struct ren_state
+typedef struct ren_state ren_state_t;
+
+struct ren_state
 {
 	struct { int x, y; } translate;
 	ren_pixel_t color;
@@ -76,8 +78,7 @@ typedef struct ren_state
 	ren_rect_t clip;
 	ren_font_t* font;
 	ren_bitmap_t* target;
-}
-ren_state_t;
+};
 
 typedef struct ren_batch_data
 {
@@ -101,10 +102,10 @@ ren_batch_t;
  *****************************************************************************/
 
 extern ren_bitmap_t* const ren_screen; /* virtual framebitmap */
-extern ren_state_t ren_state; /* render state */
+extern ren_state_t* ren_state;         /* render state */
 
-ren_state_t ren_begin(void); /* lock renderer state */
-void ren_end(ren_state_t st); /* unlock render state */
+void ren_push(void);   /* lock renderer state */
+void ren_pop(void); /* unlock render state */
 void ren_reset(void); /* resets render state */
 void ren_flip(void); /* flip ren_screen bitmaps and render front bitmap */
 
@@ -158,8 +159,7 @@ void ren_circ(int x, int y, int r);
 void ren_ring(int x, int y, int r);
 void ren_recalc_transform(ren_transform_t* tr, const ren_rect_t* rect);
 void ren_blit(const ren_bitmap_t* bmp, int x, int y, const ren_rect_t* rect, const ren_transform_t* tr);
-void ren_print(const char txt[static 2], int len, int x, int y, const ren_transform_t* tr); 
-void ren_printf(const char txt[static 2], int len, int limit, int x, int y, const ren_transform_t* tr, ...);
+void ren_print(const char txt[static 2], int x, int y, const ren_transform_t* tr); 
 void ren_flush(const ren_batch_t* bat, int x, int y);
 
 #endif /* RENDERER_H */

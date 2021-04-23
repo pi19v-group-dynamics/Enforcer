@@ -1,9 +1,9 @@
 #include "system.h"
 #include "renderer.h"
 #include "mixer.h"
-#include "input.h"
+#include "stage.h"
+#include "stages.h"
 #include "event.h"
-#include "ecs.h"
 
 int main(int argc, char** argv)
 {
@@ -16,13 +16,21 @@ int main(int argc, char** argv)
 	ren_reset();
 	mix_reset();
 
-	ren_state.blend = ren_blend_alpha;
+	ren_bitmap_t* bmp = ren_load_bitmap("bin/font.png");
+	ren_font_t* font = ren_make_font(bmp, 3, 5);
+	ren_state->font = font;
+
+	stage_switch(INTRO_STAGE);
 
 	while ((state = sys_step(1.0 / 60.0, &dt)) != SYS_CLOSED)
 	{
-		ren_fill((ren_pixel_t){.a = 0xFF, .r = 0x00, .g = 0x00, .b = 0x00});	
+		stage_update(dt);
+		stage_render();
 		ren_flip();
 	}
+
+	ren_free_font(font);
+	ren_free_bitmap(bmp);
 
 	return 0;
 }

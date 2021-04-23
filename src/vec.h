@@ -3,6 +3,7 @@
 
 #include <math.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include "fastmath.h"
 
 typedef float_t vec3_t[3];

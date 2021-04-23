@@ -1,7 +1,7 @@
 CC = gcc
 NAME = poke-n-conquer 
-FLAGS = -Wall -Wextra -pedantic -g -O0 \
-				-Ilib/ \
+FLAGS = -Wall -Wextra -pedantic -march=native -O0 -g03 \
+				-Ilib/ -Isrc/\
 				-DLOG_ALLOW=LOG_ALL -include src/log.h \
 				-DSYS_INIT_WINDOW_SCALE=4 \
 				-DSYS_INIT_WINDOW_TITLE="\"Poke n' Conquer\"" \
@@ -19,7 +19,7 @@ ifeq ($(OS), Windows_NT)
 else
 	mkdir -p bin
 endif
-	$(CC) $(wildcard src/*.c) -obin/$(NAME) $(FLAGS)
+	$(CC) $(wildcard src/*.c src/stages/*.c) -obin/$(NAME) $(FLAGS)
 
 run:
 	./bin/$(NAME)

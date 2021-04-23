@@ -4,7 +4,6 @@
 #include <stdarg.h>
 #include "system.h"
 #include "memalloc.h"
-#include "utils.h"
 #include "fastmath.h"
 
 /* Import stb_image.h, avoid warnings from it */
@@ -18,6 +17,9 @@
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #include "stb_image.h"
 #pragma GCC diagnostic pop
+
+#undef assert
+#include "utils.h"
 
 /******************************************************************************
  * Internals
@@ -52,32 +54,39 @@ const ren_transform_t* const REN_NULL_TRANSFORM = &(ren_transform_t)
 	.ang = 0.0f, .sx = 1.0f, .sy = 1.0f, .ox = 0.0f, .oy = 0.0f
 };
 
-ren_state_t ren_state;
+#ifndef REN_STATE_STACK_SIZE
+#define REN_STATE_STACK_SIZE 32
+#endif /* REN_STATE_STACK_SIZE */
+
+static ren_state_t state_stack[REN_STATE_STACK_SIZE];
 static atomic_flag lock_flag = ATOMIC_FLAG_INIT;
 
-ren_state_t ren_begin(void)
+ren_state_t* ren_state = state_stack;
+
+void ren_push(void)
 {
 	spinlock_lock(&lock_flag);
-	return ren_state;
+	assert(++ren_state < state_stack + REN_STATE_STACK_SIZE, "Renderer state stack overflow!");
+	memcpy(ren_state, ren_state - 1, sizeof(ren_state_t));
 }
 
-void ren_end(ren_state_t st)
+void ren_pop(void)
 {
-	ren_state = st;
+	assert(--ren_state >= state_stack, "Renderer state stack underflow!");
 	spinlock_unlock(&lock_flag);
 }
 
 void ren_reset(void)
 {
-	ren_state = (ren_state_t)
-	{
-		.translate = {0, 0},
-		.color = {.a = 0xFF, .r = 0x00, .g = 0x00, .b = 0x00},
-		.blend = ren_blend_replace,
-		.clip = {0, 0, REN_WIDTH, REN_HEIGHT},
-		.font = NULL,
-		.target = ren_screen
-	};
+	spinlock_lock(&lock_flag);
+	ren_state = state_stack;
+	ren_state->translate.x = ren_state->translate.y = 0;
+	ren_state->color = (ren_pixel_t){.a = 0xFF, .r = 0x00, .g = 0x00, .b = 0x00};
+	ren_state->blend = ren_blend_replace;
+	ren_state->clip = (ren_rect_t){0, 0, REN_WIDTH, REN_HEIGHT};
+	ren_state->font = NULL;
+	ren_state->target = ren_screen;
+	spinlock_unlock(&lock_flag);
 }
 
 void ren_flip(void)
@@ -288,49 +297,49 @@ void ren_update_batch(ren_batch_t* bat)
 
 void ren_fill(ren_pixel_t col)
 {
-	ren_pixel_t* p = ren_state.target->data + ren_state.clip.y;
-	while (p < ren_state.target->data + (ren_state.clip.y + ren_state.clip.h) * ren_state.target->width)
+	ren_pixel_t* p = ren_state->target->data + ren_state->clip.y;
+	while (p < ren_state->target->data + (ren_state->clip.y + ren_state->clip.h) * ren_state->target->width)
 	{
-		for (int i = 0; i < ren_state.clip.w; ++i, *p++ = col);
+		for (int i = 0; i < ren_state->clip.w; ++i, *p++ = col);
 	}
 }
 
 ren_pixel_t ren_peek(int x, int y)
 {
-	if (x < ren_state.clip.x || x >= ren_state.clip.x + ren_state.clip.w 
-	||  y < ren_state.clip.y || y >= ren_state.clip.y + ren_state.clip.h)
+	if (x < ren_state->clip.x || x >= ren_state->clip.x + ren_state->clip.w 
+	||  y < ren_state->clip.y || y >= ren_state->clip.y + ren_state->clip.h)
 	{
 		return (ren_pixel_t){.a = 0xFF, .r = 0x00, .g = 0x00, .b = 0x00};
 	}
-	return ren_state.target->data[x + y * ren_state.target->width];	
+	return ren_state->target->data[x + y * ren_state->target->width];	
 }
 
 __attribute__((always_inline)) inline void ren_plot(int x, int y)
 {
-	x += ren_state.translate.x;
-	y += ren_state.translate.y;
-	if (x >= ren_state.clip.x && x < ren_state.clip.x + ren_state.clip.w
-	&&  y >= ren_state.clip.y && y < ren_state.clip.y + ren_state.clip.h)
+	x += ren_state->translate.x;
+	y += ren_state->translate.y;
+	if (x >= ren_state->clip.x && x < ren_state->clip.x + ren_state->clip.w
+	&&  y >= ren_state->clip.y && y < ren_state->clip.y + ren_state->clip.h)
 	{
-		ren_state.blend(ren_state.target->data + x + y * ren_state.target->width, ren_state.color);
+		ren_state->blend(ren_state->target->data + x + y * ren_state->target->width, ren_state->color);
 	}
 }
 
 void ren_rect(int x, int y, int w, int h)
 {
-	x += ren_state.translate.x;
-	y += ren_state.translate.y;
-	int x1 = x + w; w = ren_state.clip.x + ren_state.clip.w;
+	x += ren_state->translate.x;
+	y += ren_state->translate.y;
+	int x1 = x + w; w = ren_state->clip.x + ren_state->clip.w;
 	if (x1 > w) x1 = w;
-	int y1 = y + h; h = ren_state.clip.y + ren_state.clip.h;
+	int y1 = y + h; h = ren_state->clip.y + ren_state->clip.h;
 	if (y1 > h) y1 = h;
-	if (x < ren_state.clip.x) x = ren_state.clip.x; 	
-	if (y < ren_state.clip.y) y = ren_state.clip.y; 
+	if (x < ren_state->clip.x) x = ren_state->clip.x; 	
+	if (y < ren_state->clip.y) y = ren_state->clip.y; 
 	while (y < y1)
 	{
-		for (ren_pixel_t* p = ren_state.target->data + x + y * ren_state.target->width;
-		     p < ren_state.target->data + x1 + y * ren_state.target->width;
-				 ren_state.blend(p++, ren_state.color));
+		for (ren_pixel_t* p = ren_state->target->data + x + y * ren_state->target->width;
+		     p < ren_state->target->data + x1 + y * ren_state->target->width;
+				 ren_state->blend(p++, ren_state->color));
 		++y;
 	}
 }
@@ -403,8 +412,8 @@ void ren_ring(int x, int y, int r)
 	int dx = abs(r);
 	int dy = 0;
 	int radius_err = 1 - dx;
-	if (x + dx < ren_state.clip.x || x - dx > ren_state.clip.x + ren_state.clip.w ||
-			y + dx < ren_state.clip.y || y - dx > ren_state.clip.y + ren_state.clip.h) return;
+	if (x + dx < ren_state->clip.x || x - dx > ren_state->clip.x + ren_state->clip.w ||
+			y + dx < ren_state->clip.y || y - dx > ren_state->clip.y + ren_state->clip.h) return;
 	while (dx >= dy)
 	{
 		ren_plot( dx + x,  dy + y);
@@ -440,7 +449,6 @@ void ren_recalc_transform(ren_transform_t* tr, const ren_rect_t* rect)
 	float x1 = rect->w - tr->ox, y1 =          -tr->oy;
 	float x2 =          -tr->ox, y2 = rect->h - tr->oy;
 	float x3 = rect->w - tr->ox, y3 = rect->h - tr->oy;
-	/* */
 	/* Rotate points around origin */
 	#define rotate(n) do {                    \
 			float tmpx = x##n;                    \
@@ -459,8 +467,8 @@ void ren_recalc_transform(ren_transform_t* tr, const ren_rect_t* rect)
 void ren_blit(const ren_bitmap_t* bmp, int px, int py, const ren_rect_t* rect, const ren_transform_t* tr)
 {
 	/* Translate position */
-	px += ren_state.translate.x;
-	py += ren_state.translate.y;
+	px += ren_state->translate.x;
+	py += ren_state->translate.y;
 	/* Clip bound rectangle to fit it on screen */
 	int beg_x = max(-px, tr->beg_x);
 	int beg_y = max(-py, tr->beg_y);
@@ -469,7 +477,7 @@ void ren_blit(const ren_bitmap_t* bmp, int px, int py, const ren_rect_t* rect, c
 	/* For each point of boundary */
 	for (int ty = beg_y; ty < end_y; ++ty)
 	{
-		int tar_y = (ty + py) * ren_state.target->width; /* precalculated y-offset */
+		int tar_y = (ty + py) * ren_state->target->width; /* precalculated y-offset */
 		for (int tx = beg_x; tx < end_x; ++tx)
 		{
 			/* Derotate point */
@@ -478,7 +486,7 @@ void ren_blit(const ren_bitmap_t* bmp, int px, int py, const ren_rect_t* rect, c
 			if (drx >= 0.0f && dry >= 0.0f && drx < rect->w && dry < rect->h)
 			{
 				/* Blend pixel */
-				ren_state.blend(ren_state.target->data + tx + px + tar_y,
+				ren_state->blend(ren_state->target->data + tx + px + tar_y,
 					bmp->data[(int)drx + rect->x + ((int)dry + rect->y) * bmp->width]);
 			}
 		} 
@@ -493,93 +501,43 @@ static inline void blit_scaled(const ren_bitmap_t* buf, const ren_rect_t* rect, 
 	/* Blend pixels */
 	for (int y = py; y < end_y; ++y)
 	{
-		ren_pixel_t* dst = ren_state.target->data + y * ren_state.target->width;
+		ren_pixel_t* dst = ren_state->target->data + y * ren_state->target->width;
 		const ren_pixel_t* src = buf->data + ((y - py) / sy + rect->y) * buf->width;
 		for (int x = px; x < end_x; ++x)
 		{
 			if (src[(x - px) / sx + rect->x].a != 0)
 			{
-				ren_state.blend(dst + x, ren_state.color);
+				ren_state->blend(dst + x, ren_state->color);
 			}
 		}
 	}
 }
 
-void ren_print(const char txt[static 2], int len, int x, int y, const ren_transform_t* tr)
+void ren_print(const char txt[static 2], int x, int y, const ren_transform_t* tr)
 {
-	if (len == 0) len = INT_MAX; 
-	ren_rect_t rect = {.w = ren_state.font->glyph_w, .h = ren_state.font->glyph_h}; 	
-	x += ren_state.translate.x - tr->ox;
-	y += ren_state.translate.y - tr->oy;
-	int shift = ren_state.font->hspacing + tr->sx * rect.w;
-	for (int i = 0; txt[i] != '\0' && i < len; ++i)
+	ren_rect_t rect = {.w = ren_state->font->glyph_w, .h = ren_state->font->glyph_h}; 	
+	x += ren_state->translate.x - tr->ox;
+	y += ren_state->translate.y - tr->oy;
+	int shift = ren_state->font->hspacing + tr->sx * rect.w;
+	for (int i = 0; txt[i] != '\0'; ++i)
 	{
-		rect.x = (txt[i] % ren_state.font->pitch) * ren_state.font->glyph_w;
-		rect.y = (txt[i] / ren_state.font->pitch) * ren_state.font->glyph_h;
-		blit_scaled(ren_state.font->bitmap, &rect, x + i * shift, y, tr->sx, tr->sy);
-	}
-}
-
-void ren_printf(const char txt[static 2], int len, int limit, int x, int y, const ren_transform_t* tr, ...)
-{
-	if (len == 0) len = INT_MAX; 
-	char parsed[strlen(txt) + 1];
-	va_list va;
-	va_start(va, tr);
-	vsnprintf(parsed, sizeof(parsed), txt, va);
-	va_end(va);
-	ren_rect_t rect = {.w = ren_state.font->glyph_w, .h = ren_state.font->glyph_h}; 	
-	x += ren_state.translate.x - tr->ox;
-	y += ren_state.translate.y - tr->oy;
-	int shift_w = ren_state.font->hspacing + tr->sx * rect.w;
-	int shift_h = ren_state.font->vspacing + tr->sy * rect.h;
-	int cur_x = x;
-	int cur_y = y;
-	for (int i = 0, wr = 1; i < len; ++i, ++wr)
-	{
-		switch (parsed[i])
-		{
-			case '\0':
-				return;
-			case '\t':
-			{
-				int num_spaces = (ren_state.font->tabwidth - (((cur_x - x) % shift_w) % ren_state.font->tabwidth));
-				cur_x += num_spaces * shift_w;
-				wr += num_spaces - 1;
-				break;
-			}
-			case '\n':
-				wr = 0;
-				cur_x = x;
-				cur_y += shift_h;
-				break;
-			default:
-				rect.x = (txt[i] % ren_state.font->pitch) * ren_state.font->glyph_w;
-				rect.y = (txt[i] / ren_state.font->pitch) * ren_state.font->glyph_h;
-				blit_scaled(ren_state.font->bitmap, &rect, cur_x, cur_y, tr->sx, tr->sy);
-				cur_x += shift_w;
-				break;
-		}
-		if (limit != 0 && parsed[i] != '\n' && wr >= limit)
-		{
-			wr = 0;
-			cur_x = x;
-			cur_y += shift_h;
-		}
+		rect.x = (txt[i] % ren_state->font->pitch) * ren_state->font->glyph_w;
+		rect.y = (txt[i] / ren_state->font->pitch) * ren_state->font->glyph_h;
+		blit_scaled(ren_state->font->bitmap, &rect, x + i * shift, y, tr->sx, tr->sy);
 	}
 }
 
 void ren_flush(const ren_batch_t* bat, int x, int y)
 {
-	ren_state.translate.x += x;
-	ren_state.translate.y += y;
+	ren_state->translate.x += x;
+	ren_state->translate.y += y;
 	/* For each point of boundary */
 	for (int ty = bat->transform->beg_y; ty < bat->transform->end_y; ++ty)
 	{
-		ren_state.translate.y += ty;
+		ren_state->translate.y += ty;
 		for (int tx = bat->transform->beg_x; tx < bat->transform->end_x; ++tx)
 		{
-			ren_state.translate.x += tx;
+			ren_state->translate.x += tx;
 			/* Derotate point */
 			float drx = (tx * bat->transform->cos - ty * bat->transform->sin) / bat->transform->sx + bat->transform->ox;
 			float dry = (tx * bat->transform->sin + ty * bat->transform->cos) / bat->transform->sy + bat->transform->oy;
@@ -587,15 +545,15 @@ void ren_flush(const ren_batch_t* bat, int x, int y)
 			{
 				for (unsigned i = 0; i < bat->count; ++i)
 				{
-					ren_state.color = bat->bitmap->data[(int)drx + bat->data[i].bx + ((int)dry + bat->data[i].by) * bat->bitmap->width];
+					ren_state->color = bat->bitmap->data[(int)drx + bat->data[i].bx + ((int)dry + bat->data[i].by) * bat->bitmap->width];
 					ren_plot(bat->data[i].px, bat->data[i].py);
 				}
 			}
-			ren_state.translate.x -= tx;
+			ren_state->translate.x -= tx;
 		} 
-		ren_state.translate.y -= ty;
+		ren_state->translate.y -= ty;
 	}
-	ren_state.translate.x -= x;
-	ren_state.translate.y -= y;
+	ren_state->translate.x -= x;
+	ren_state->translate.y -= y;
 }
 
