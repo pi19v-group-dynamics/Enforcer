@@ -4,7 +4,6 @@ FLAGS = -Wall -Wextra -pedantic -march=native -Og -g03 \
 				-Ilib/ -Isrc/ \
 				-fopenmp \
 				-DLOG_ALLOW=LOG_ALL -include src/log.h \
-				-DSYS_INIT_WINDOW_SCALE=4 \
 				-DSYS_INIT_WINDOW_TITLE="\"Poke n' Conquer\"" \
 				-DMEMALLOC_ABORT -DMEMALLOC_LOG
 

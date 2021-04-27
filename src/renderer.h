@@ -61,7 +61,7 @@ typedef struct ren_font
 {
 	int pitch;                  /* number glyphs in line */
 	int glyph_w, glyph_h;       /* size of glyph (monospace font) */
-	int vspacing, hspacing;     /* vertical, horizonatal spacing */
+	int spacing;                /* vertical, horizonatal spacing */
 	int tabwidth;               /* tab width */
 	const ren_bitmap_t* bitmap; /* source font image */
 }

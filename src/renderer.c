@@ -1,6 +1,5 @@
 #include "renderer.h"
 #include <string.h>
-#include <stdatomic.h>
 #include <stdarg.h>
 #include "system.h"
 #include "memalloc.h"
@@ -39,14 +38,13 @@ __attribute__((always_inline, pure)) static inline int min(int a, int b)
  * Renderer state
  *****************************************************************************/
 
-static ren_pixel_t bitmaps[2][REN_WIDTH * REN_HEIGHT];
-static int buf_cnt = 0;
+static ren_pixel_t buffer[REN_WIDTH * REN_HEIGHT];
 
 ren_bitmap_t* const ren_screen = &(ren_bitmap_t)
 {
 	.width  = REN_WIDTH,
 	.height = REN_HEIGHT,
-	.data   = bitmaps[0]
+	.data   = buffer 
 };
 
 const ren_transform_t* const REN_NULL_TRANSFORM = &(ren_transform_t)
@@ -59,13 +57,10 @@ const ren_transform_t* const REN_NULL_TRANSFORM = &(ren_transform_t)
 #endif /* REN_STATE_STACK_SIZE */
 
 static ren_state_t state_stack[REN_STATE_STACK_SIZE];
-static atomic_flag lock_flag = ATOMIC_FLAG_INIT;
-
 ren_state_t* ren_state = state_stack;
 
 void ren_push(void)
 {
-	spinlock_lock(&lock_flag);
 	assert(++ren_state < state_stack + REN_STATE_STACK_SIZE - 1, "Renderer state stack overflow!");
 	memcpy(ren_state, ren_state - 1, sizeof(ren_state_t));
 }
@@ -73,12 +68,10 @@ void ren_push(void)
 void ren_pop(void)
 {
 	assert(--ren_state >= state_stack, "Renderer state stack underflow!");
-	spinlock_unlock(&lock_flag);
 }
 
 void ren_reset(void)
 {
-	spinlock_lock(&lock_flag);
 	ren_state = state_stack;
 	ren_state->translate.x = ren_state->translate.y = 0;
 	ren_state->color = (ren_pixel_t){.a = 0xFF, .r = 0x00, .g = 0x00, .b = 0x00};
@@ -86,17 +79,11 @@ void ren_reset(void)
 	ren_state->clip = (ren_rect_t){0, 0, REN_WIDTH, REN_HEIGHT};
 	ren_state->font = NULL;
 	ren_state->target = ren_screen;
-	spinlock_unlock(&lock_flag);
 }
 
 void ren_flip(void)
 {
-	spinlock_lock(&lock_flag);
-	const void* back = ren_screen->data;
-	buf_cnt = (buf_cnt + 1) & 1;
-	ren_screen->data = bitmaps[buf_cnt];
-	sys_display(back, sizeof(ren_pixel_t[REN_WIDTH]));
-	spinlock_unlock(&lock_flag);
+	sys_display(buffer, sizeof(ren_pixel_t[REN_WIDTH]));
 }
 
 /******************************************************************************
@@ -269,8 +256,7 @@ ren_font_t* ren_make_font(const ren_bitmap_t* buf, int glyph_w, int glyph_h)
 	ren_font_t* font = malloc(sizeof(ren_font_t));
 	font->glyph_w = glyph_w;
 	font->glyph_h = glyph_h;
-	font->vspacing = 1;
-	font->hspacing = 1;
+	font->spacing = 1;
 	font->tabwidth = 1;
 	font->bitmap = buf;
 	font->pitch = buf->width / glyph_w;
@@ -512,10 +498,9 @@ static inline void blit_scaled(const ren_bitmap_t* buf, const ren_rect_t* rect, 
 void ren_print(const char* restrict txt, int x, int y, const ren_transform_t* tr)
 {
 	if (txt == NULL) return;
+	x += tr->ox, y += tr->oy;
 	ren_rect_t rect = {.w = ren_state->font->glyph_w, .h = ren_state->font->glyph_h}; 	
-	x += ren_state->translate.x + tr->ox;
-	y += ren_state->translate.y + tr->oy;
-	int shift = ren_state->font->hspacing + tr->sx * rect.w;
+	int shift = ren_state->font->spacing + tr->sx * rect.w;
 	for (int i = 0; txt[i] != '\0'; ++i)
 	{
 		rect.x = (txt[i] % ren_state->font->pitch) * ren_state->font->glyph_w;
