@@ -2,8 +2,7 @@
 #include "renderer.h"
 #include "mixer.h"
 #include "stage.h"
-#include "stages.h"
-#include "event.h"
+#include "input.h"
 
 int main(int argc, char** argv)
 {
@@ -20,11 +19,12 @@ int main(int argc, char** argv)
 	ren_font_t* font = ren_make_font(bmp, 3, 5);
 	ren_state->font = font;
 
-	stage_switch(INTRO_STAGE);
+	stage_switch(MAIN_MENU_STAGE);
 
-	while ((state = sys_step(1.0 / 60.0, &dt)) != SYS_CLOSED)
+	while ((state = sys_step(1.0 / 60.0, &dt)) != SYS_CLOSED && !inp_kb_down(ESCAPE))
 	{
 		stage_update(dt);
+		ren_fill((ren_pixel_t){.raw = 0xFF000000});
 		stage_render();
 		ren_flip();
 	}

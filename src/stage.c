@@ -4,66 +4,63 @@
 #include "utils.h"
 
 static atomic_flag lock = ATOMIC_FLAG_INIT;
-static stage_t* stages = NULL;
-static int current_stage = -1;
-static int num_stages = 0;
+static stage_t stages[STAGES_COUNT];
+static stage_t* current_stage = NULL;
 
-void stage_create(stage_callback_t on_open,
-                  stage_callback_t on_update,
-                  stage_callback_t on_render,
-                  stage_callback_t on_close)
+#define concat(a, b) a##b
+#define create_stage(name, prefix) do { \
+		extern void concat(prefix, _stage_open)(stage_t*); \
+		extern void concat(prefix, _stage_update)(stage_t*); \
+		extern void concat(prefix, _stage_render)(stage_t*); \
+		extern void concat(prefix, _stage_close)(stage_t*); \
+		stages[name].on_open   = concat(prefix, _stage_open); \
+		stages[name].on_update = concat(prefix, _stage_update); \
+		stages[name].on_render = concat(prefix, _stage_render); \
+		stages[name].on_close  = concat(prefix, _stage_close); \
+	} while (0)
+
+__attribute__((constructor)) static void stage_setup(void)
 {
-	stages = realloc(stages, sizeof(stage_t[num_stages + 1]));
-	stage_t* data = stages + num_stages;
-	data->camera = (camera_t)
-	{
-		.pos = {0, 0, 0},
-		.zoom = 1,
-		.angle = 0
-	};
-	data->on_open = on_open;
-	data->on_update = on_update;
-	data->on_render = on_render;
-	data->on_close = on_close;
-	++num_stages;
+	log_debug("Creating stages...");
+	create_stage(INTRO_STAGE, intro);
+	create_stage(MAIN_MENU_STAGE, main_menu);
+	create_stage(SETTINGS_STAGE, settings);
+	/* Put 'create_stage(STAGE_IDENTIFIER, stage_prefix)' here */
+	log_debug("Stages created successfully!");
 }
 
-__attribute__((destructor)) static void stage_free(void)
+#undef create_stage
+#undef concat
+
+__attribute__((destructor)) static void stage_cleanup(void)
 {
-	if (current_stage != -1)
-	{
-		stage_t* stage = stages + current_stage;
-		stage->on_close(stage);
-	}
-	free(stages);
+	if (current_stage) current_stage->on_close(current_stage);
+	log_debug("Stages closed!");
 }
 
-void stage_update(double dt)
+__attribute__((always_inline)) inline void stage_update(double dt)
 {
-	stage_t* std = stages + current_stage;
-	std->dt = dt;
-	std->on_update(std);
+	assert(current_stage, "No one stage isn't open!");
+	current_stage->dt = dt;
+	current_stage->on_update(current_stage);
 }
 
-void stage_render(void)
+__attribute__((always_inline)) inline void stage_render(void)
 {
-	stage_t* std = stages + current_stage;
-	std->on_render(std);
+	assert(current_stage, "No one stage isn't open!");
+	current_stage->on_render(current_stage);
 }
 
 void stage_switch(int id)
 {
-	stage_t* std;
-	assert(id >= 0 && id < num_stages, "Invalid stage identifier: %i", id);
+	assert(id >= 0 && id < STAGES_COUNT, "Invalid stage identifier: %i", id);
 	spinlock_lock(&lock);
-	if (current_stage != -1)
+	if (current_stage)
 	{
-		std = stages + current_stage;
-		std->on_close(std);
+		current_stage->on_close(current_stage);
 	}
-	current_stage = id;
-	std = stages + current_stage;
-	std->on_open(std);
+	current_stage = stages + id;
+	current_stage->on_open(current_stage);
 	spinlock_unlock(&lock);
 }
 

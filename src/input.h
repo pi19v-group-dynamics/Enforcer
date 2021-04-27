@@ -1,5 +1,4 @@
-#ifndef INPUT_H
-#define INPUT_H
+#pragma once
 
 #include <SDL2/SDL.h>
 #include <stdbool.h>
@@ -27,6 +26,4 @@ extern char inp_text[32];
 
 /* Find first pressed keyboard/mouse key */
 int inp_first_pressed(void);
-
-#endif /* INPUT_H */
 

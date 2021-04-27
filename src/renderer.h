@@ -1,5 +1,4 @@
-#ifndef RENDERER_H
-#define RENDERER_H
+#pragma once
 
 #include <SDL2/SDL_endian.h>
 #include <stdint.h>
@@ -159,8 +158,6 @@ void ren_circ(int x, int y, int r);
 void ren_ring(int x, int y, int r);
 void ren_recalc_transform(ren_transform_t* tr, const ren_rect_t* rect);
 void ren_blit(const ren_bitmap_t* bmp, int x, int y, const ren_rect_t* rect, const ren_transform_t* tr);
-void ren_print(const char txt[static 2], int x, int y, const ren_transform_t* tr); 
+void ren_print(const char* restrict txt, int x, int y, const ren_transform_t* tr); 
 void ren_flush(const ren_batch_t* bat, int x, int y);
-
-#endif /* RENDERER_H */
 

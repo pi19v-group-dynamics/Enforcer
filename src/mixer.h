@@ -1,5 +1,4 @@
-#ifndef MIXER_H
-#define MIXER_H
+#pragma once
 
 #include <stdbool.h>
 
@@ -68,6 +67,4 @@ void mix_loop(mix_source_t* src, bool loop);
 void mix_play(mix_source_t* src);
 void mix_stop(mix_source_t* src);
 void mix_pause(mix_source_t* src);
-
-#endif /* MIXER_H */
 

@@ -66,7 +66,7 @@ ren_state_t* ren_state = state_stack;
 void ren_push(void)
 {
 	spinlock_lock(&lock_flag);
-	assert(++ren_state < state_stack + REN_STATE_STACK_SIZE, "Renderer state stack overflow!");
+	assert(++ren_state < state_stack + REN_STATE_STACK_SIZE - 1, "Renderer state stack overflow!");
 	memcpy(ren_state, ren_state - 1, sizeof(ren_state_t));
 }
 
@@ -495,29 +495,26 @@ void ren_blit(const ren_bitmap_t* bmp, int px, int py, const ren_rect_t* rect, c
 
 static inline void blit_scaled(const ren_bitmap_t* buf, const ren_rect_t* rect, int px, int py, int sx, int sy)
 {
-	/* Clip scaled rect */
-	int end_x = min(px + rect->w * sx, REN_WIDTH);
-	int end_y = min(py + rect->h * sy, REN_HEIGHT);
 	/* Blend pixels */
-	for (int y = py; y < end_y; ++y)
+	for (int y = py; y < py + rect->h * sy; ++y)
 	{
-		ren_pixel_t* dst = ren_state->target->data + y * ren_state->target->width;
 		const ren_pixel_t* src = buf->data + ((y - py) / sy + rect->y) * buf->width;
-		for (int x = px; x < end_x; ++x)
+		for (int x = px; x < px + rect->w * sx; ++x)
 		{
 			if (src[(x - px) / sx + rect->x].a != 0)
 			{
-				ren_state->blend(dst + x, ren_state->color);
+				ren_plot(x, y);
 			}
 		}
 	}
 }
 
-void ren_print(const char txt[static 2], int x, int y, const ren_transform_t* tr)
+void ren_print(const char* restrict txt, int x, int y, const ren_transform_t* tr)
 {
+	if (txt == NULL) return;
 	ren_rect_t rect = {.w = ren_state->font->glyph_w, .h = ren_state->font->glyph_h}; 	
-	x += ren_state->translate.x - tr->ox;
-	y += ren_state->translate.y - tr->oy;
+	x += ren_state->translate.x + tr->ox;
+	y += ren_state->translate.y + tr->oy;
 	int shift = ren_state->font->hspacing + tr->sx * rect.w;
 	for (int i = 0; txt[i] != '\0'; ++i)
 	{

@@ -1,5 +1,4 @@
-#ifndef UTILS_H
-#define UTILS_H
+#pragma once
 
 #include <stdlib.h>
 
@@ -28,6 +27,4 @@
 
 #define spinlock_lock(x) while (atomic_flag_test_and_set(x))
 #define spinlock_unlock(x) atomic_flag_clear(x)
-
-#endif /* UTILS_H */
 

@@ -160,6 +160,8 @@ static int process_events(void)
 
 #define INV_MILLIS (1.0 / 1000.0)
 
+static bool close = false;
+
 int sys_step(double time_step, double* dt)
 {
 	static double last = 0.0, prev = 0.0;
@@ -176,7 +178,7 @@ int sys_step(double time_step, double* dt)
 	}
 	*dt = now - prev;
 	prev = now;
-	return process_events();
+	return process_events() && !close;
 }
 
 void sys_display(const void* pixels, int pitch)
@@ -195,5 +197,10 @@ __attribute__((always_inline)) inline void sys_mute(bool state)
 __attribute__((always_inline)) inline void sys_vsync(bool enabled)
 {
 	SDL_GL_SetSwapInterval(enabled);
+}
+
+void sys_exit(void)
+{
+	close = true;
 }
 

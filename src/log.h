@@ -1,5 +1,4 @@
-#ifndef LOG_H
-#define LOG_H
+#pragma once
 
 #include <stdio.h>
 
@@ -37,6 +36,4 @@ enum /* log allow bitfield values */
 void log_stream(FILE* fp);
 /* Generic function to printing logs */
 void log_write(int lvl, const char* restrict file, const char* restrict func, int line, const char* restrict fmt, ...);
-
-#endif /* LOG_H */
 

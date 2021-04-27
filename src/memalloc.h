@@ -1,5 +1,4 @@
-#ifndef MEMALLOC_H
-#define MEMALLOC_H
+#pragma once
 
 #include <stdlib.h>
 #include <stdint.h>
@@ -93,12 +92,21 @@ static inline void* _memalloc_realloc(void* ptr, size_t bytes, const char* restr
 			ptr = realloc(ptr, bytes);
 		}
 	}
-#ifdef MEMALLOC_LOG
 	else
 	{
-		log_write(LOG_TRACE, file, func, line, "%s() reallocated %lu bytes, block: %p", __func__, bytes, ptr);
-	}
+		ptr = realloc(ptr, bytes);
+		if (ptr == NULL)
+		{
+			log_error("failed to reallocate %lu bytes, block: %p", bytes, ptr);
+			abort();
+		}
+		else
+		{
+#ifdef MEMALLOC_LOG
+			log_write(LOG_TRACE, file, func, line, "%s() reallocated %lu bytes, block: %p", __func__, bytes, ptr);
 #endif /* MEMALLOC_LOG */
+		}
+	}
 	return ptr;
 }
 
@@ -139,7 +147,7 @@ static inline void _memalloc_free(void* ptr, const char* restrict file, const ch
 		extern uint_fast32_t _memalloc_leaks;
 		if (_memalloc_leaks == 0)
 		{
-			log_fatal("trying to free unknown memory block %p!", ptr);
+			log_error("trying to free unknown memory block %p!", ptr);
 			abort();
 		}
 		else
@@ -157,6 +165,4 @@ static inline void _memalloc_free(void* ptr, const char* restrict file, const ch
 #define realloc(p, x) _memalloc_realloc(p, x, __FILE__, __func__, __LINE__)
 #define aligned_alloc(n, x) _memalloc_aligned_alloc(n, x, __FILE__, __func__, __LINE__)
 #define free(p) _memalloc_free(p, __FILE__, __func__, __LINE__)
-
-#endif /* MEMALLOC_H */
 

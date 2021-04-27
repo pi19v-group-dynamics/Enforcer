@@ -9,7 +9,7 @@ float_t _fast_cos_lookup[FASTMATH_LUT_RANGE];
 __attribute__((constructor(102))) static void fastmath_build_lookup(void)
 {
 	log_debug("Building lookup tables...");	
-
+	
 	for (int i = 0; i < FASTMATH_LUT_RANGE; ++i)
 	{
 		_fast_sin_lookup[i] = sin(((float_t)i / FASTMATH_LUT_RANGE) * PI2);

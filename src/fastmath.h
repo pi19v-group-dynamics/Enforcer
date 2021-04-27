@@ -1,5 +1,4 @@
-#ifndef FASTMATH_H
-#define FASTMATH_H
+#pragma once
 
 #include <tgmath.h>
 
@@ -25,6 +24,4 @@ __attribute__((always_inline, pure)) inline float_t fastlerp(float_t a, float_t 
 {
 	return a + (b - a) * t;
 }
-
-#endif /* FASTMATH_H */
 

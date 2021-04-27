@@ -1,5 +1,4 @@
-#ifndef VEC_H
-#define VEC_H
+#pragma once
 
 #include <math.h>
 #include <stdint.h>
@@ -88,6 +87,4 @@ static inline bool vec3_eql(const vec3_t a, const vec3_t b)
 {
 	return a[0] == b[0] && a[1] == b[1] && a[2] == b[2];
 }
-
-#endif /* VEC_H */
 
