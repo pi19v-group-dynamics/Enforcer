@@ -1,100 +1,75 @@
 #pragma once
 
 #include "ecs.h"
-#include "vec.h"
+#include "math_ext.h"
 #include "renderer.h"
+#include "ai.h"
 
 enum
 {
-	ACT_STEER_ID,
-	ACT_RENDER_ID,
-	ACT_UNIT_ID,
-	ACT_ID_COUNT
+	ACTOR_STEER_COMPONENT_ID,
+	ACTOR_RENDER_COMPONENT_ID,
+	ACTOR_UNIT_COMPONENT_ID,
+	ACTOR_COMPONENTS_COUNT
 };
 
 enum
 {
-	ACT_STEER_BIT  = 1 << ACT_STEER_ID,
-	ACT_RENDER_BIT = 1 << ACT_RENDER_ID,
-	ACT_UNIT_BIT   = 1 << ACT_UNIT_ID,
+	ACTOR_STEER_COMPONENT_BIT  = 1 << ACTOR_STEER_COMPONENT_ID,
+	ACTOR_RENDER_COMPONENT_BIT = 1 << ACTOR_RENDER_COMPONENT_ID,
+	ACTOR_UNIT_COMPONENT_BIT   = 1 << ACTOR_UNIT_COMPONENT_ID
 };
 
 /******************************************************************************
- * Steering component
+ * Steering component 
  *****************************************************************************/
 
-typedef struct act_steer
+typedef void (*actor_steer_behavior_t)(ai_model_t* model);
+
+typedef struct actor_steer_component
 {
-	float_t mass;
-	vec3_t position;
-	vec3_t velocity;
-	vec3_t max_force;
-	vec3_t max_speed;
-	float_t size;
-	ecs_callback_t behavior;
+	ai_model_t model;
+	actor_steer_behavior_t behavior;
 }
-act_steer_t;
+actor_steer_component_t;
 
-void act_steer_seek(act_steer_t* steer, vec3_t target, float_t slowing_radius);
-void act_steer_flee(act_steer_t* steer, vec3_t target);
-void act_steer_wander(act_steer_t* steer);
-void act_steer_evade(act_steer_t* steer, const act_steer_t* from);
-void act_steer_pursuit(act_steer_t* steer, const act_steer_t* to);
-
-void act_steer_system(ecs_world_t* world, ecs_entity_t ent);
+void actor_steer_static(ai_model_t* model);
+void actor_steer_system(ecs_manager_t* man, ecs_entity_t ent, void* udata);
 
 /******************************************************************************
- * Render component
+ * Steering component 
  *****************************************************************************/
 
-#define ACT_RENDER_MAX_FRAMES 16
-#define ACT_RENDER_MAX_LAYERS 32
+#define ACTOR_RENDER_MAX_LAYERS 32
+#define ACTOR_RENDER_MAX_FRAMES 16
 
-typedef struct act_render
+typedef struct actor_render_frame
 {
-	enum
-	{
-		ACT_RENDER_SPRITE,
-		ACT_RENDER_STACK,
-		ACT_RENDER_ZMAP
-	}
-	type;
-	enum
-	{
-		ACT_RENDER_PLAYING,
-		ACT_RENDER_PAUSED,
-		ACT_RENDER_STOPPED
-	}
-	state;
-	enum
-	{
-		ACT_RENDER_TO_END,
-		ACT_RENDER_LOOP,
-		ACT_RENDER_PING_PONG
-	}
-	anim;
-	int cur_frame, rate;
-	int fst_frame, lst_frame;
-	const ren_bitmap_t bitmap;
+	int num_layers;
+	ren_rect_t layers[ACTOR_RENDER_MAX_LAYERS];
+}
+actor_render_frame_t;
+
+typedef struct actor_render_component
+{
+	const ren_bitmap_t* bitmap;
 	ren_transform_t transform;
-	union
-	{
-		ren_rect_t rect;
-		struct
-		{
-			int num_layers;
-			ren_rect_t layers[ACT_RENDER_MAX_LAYERS];
-		};
-	}
-	frames[ACT_RENDER_MAX_FRAMES];
+	int transform_sz;
+	float cur_frame, frame_speed;
+	// TODO: do tweening
+	// TODO: animation types
+	int num_frames;
+	actor_render_frame_t frames[ACTOR_RENDER_MAX_FRAMES];
 }
-act_render_t;
+actor_render_component_t;
 
-void act_render_system(ecs_world_t* world, ecs_entity_t ent);
+void actor_render_system(ecs_manager_t* man, ecs_entity_t ent, void* udata);
 
 /******************************************************************************
  * Unit component
  *****************************************************************************/
+
+#if 0
 
 typedef enum
 {
@@ -144,4 +119,6 @@ typedef union
 	point;
 }
 act_unit_comp_t;
+
+#endif
 

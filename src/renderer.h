@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #ifndef REN_WIDTH
-#define REN_WIDTH  320
+#define REN_WIDTH  320 
 #endif /* !REN_WIDTH */
 
 #ifndef REN_HEIGHT
@@ -30,12 +30,7 @@ typedef union ren_pixel
 ren_pixel_t;
 
 typedef void (*ren_blend_t)(ren_pixel_t*, ren_pixel_t);
-
-typedef struct ren_rect
-{
-	int x, y, w, h;
-}
-ren_rect_t;
+typedef struct ren_rect { int x, y, w, h; } ren_rect_t;
 
 typedef struct ren_transform
 {
@@ -61,8 +56,6 @@ typedef struct ren_font
 {
 	int pitch;                  /* number glyphs in line */
 	int glyph_w, glyph_h;       /* size of glyph (monospace font) */
-	int spacing;                /* vertical, horizonatal spacing */
-	int tabwidth;               /* tab width */
 	const ren_bitmap_t* bitmap; /* source font image */
 }
 ren_font_t;
@@ -72,29 +65,13 @@ typedef struct ren_state ren_state_t;
 struct ren_state
 {
 	struct { int x, y; } translate;
+	int font_spacing;
 	ren_pixel_t color;
 	ren_blend_t blend;
 	ren_rect_t clip;
 	ren_font_t* font;
 	ren_bitmap_t* target;
 };
-
-typedef struct ren_batch_data
-{
-	int px, py;
-	int bx, by;
-}
-ren_batch_data_t;
-
-typedef struct ren_batch
-{
-	const ren_bitmap_t* bitmap;
-	ren_transform_t* transform;
-	int width, height;
-	unsigned count;
-	ren_batch_data_t* data;
-}
-ren_batch_t;
 
 /******************************************************************************
  * Renderer state
@@ -103,10 +80,10 @@ ren_batch_t;
 extern ren_bitmap_t* const ren_screen; /* virtual framebitmap */
 extern ren_state_t* ren_state;         /* render state */
 
-void ren_push(void);   /* lock renderer state */
-void ren_pop(void); /* unlock render state */
+void ren_push(void);  /* lock renderer state */
+void ren_pop(void);   /* unlock render state */
 void ren_reset(void); /* resets render state */
-void ren_flip(void); /* flip ren_screen bitmaps and render front bitmap */
+void ren_flip(void);  /* flip ren_screen bitmaps and render front bitmap */
 
 /******************************************************************************
  * Blend functions
@@ -139,10 +116,10 @@ ren_font_t* ren_make_font(const ren_bitmap_t* bmp, int glyph_w, int glyph_h);
 void ren_free_font(ren_font_t* font);
 
 /******************************************************************************
- * Batch
+ * Transform
  *****************************************************************************/
 
-void ren_update_batch(ren_batch_t* bat);
+void ren_recalc(ren_transform_t* tr, const ren_rect_t* rect);
 
 /******************************************************************************
  * Rendering routines
@@ -156,8 +133,6 @@ void ren_box(int x, int y, int w, int h);
 void ren_line(int x0, int y0, int x1, int x2);
 void ren_circ(int x, int y, int r); 
 void ren_ring(int x, int y, int r);
-void ren_recalc_transform(ren_transform_t* tr, const ren_rect_t* rect);
 void ren_blit(const ren_bitmap_t* bmp, int x, int y, const ren_rect_t* rect, const ren_transform_t* tr);
 void ren_print(const char* restrict txt, int x, int y, const ren_transform_t* tr); 
-void ren_flush(const ren_batch_t* bat, int x, int y);
 

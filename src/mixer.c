@@ -1,8 +1,8 @@
 #include "mixer.h"
+#include <math.h>
 #include "memalloc.h"
 #include <string.h>
 #include <SDL2/SDL.h>
-#include <tgmath.h>
 #include <stdatomic.h>
 #include "utils.h"
 

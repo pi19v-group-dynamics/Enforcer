@@ -6,7 +6,7 @@
 #include "utils.h"
 
 #ifndef SYS_INIT_WINDOW_SCALE
-#define SYS_INIT_WINDOW_SCALE 2
+#define SYS_INIT_WINDOW_SCALE 4
 #endif /* SYS_INIT_WINDOWS_SCALE */
 
 #ifndef SYS_INIT_WINDOW_TITLE
@@ -33,7 +33,10 @@ __attribute__((constructor)) static void sys_setup(void)
 	/* Init SDL */
 	confirm(SDL_Init(SDL_INIT_EVERYTHING) == 0, "SDL initalization error! SDL_Error: %s", SDL_GetError());	
 	/* Init window */
-	confirm(_sys_window = SDL_CreateWindow(SYS_INIT_WINDOW_TITLE, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, ren_screen->width, ren_screen->height, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE),
+	confirm(_sys_window = SDL_CreateWindow(SYS_INIT_WINDOW_TITLE,
+		SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+		ren_screen->width * SYS_INIT_WINDOW_SCALE, ren_screen->height * SYS_INIT_WINDOW_SCALE,
+		SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE),
 		"Window creation error! SDL error: %s",
 		SDL_GetError());
 	/* Init renderer */

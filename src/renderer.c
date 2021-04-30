@@ -2,8 +2,9 @@
 #include <string.h>
 #include <stdarg.h>
 #include "system.h"
+#include <math.h>
+#include "math.h"
 #include "memalloc.h"
-#include "fastmath.h"
 
 /* Import stb_image.h, avoid warnings from it */
 #define STB_IMAGE_STATIC
@@ -47,11 +48,6 @@ ren_bitmap_t* const ren_screen = &(ren_bitmap_t)
 	.data   = buffer 
 };
 
-const ren_transform_t* const REN_NULL_TRANSFORM = &(ren_transform_t)
-{
-	.ang = 0.0f, .sx = 1.0f, .sy = 1.0f, .ox = 0.0f, .oy = 0.0f
-};
-
 #ifndef REN_STATE_STACK_SIZE
 #define REN_STATE_STACK_SIZE 32
 #endif /* REN_STATE_STACK_SIZE */
@@ -75,7 +71,8 @@ void ren_reset(void)
 	ren_state = state_stack;
 	ren_state->translate.x = ren_state->translate.y = 0;
 	ren_state->color = (ren_pixel_t){.a = 0xFF, .r = 0x00, .g = 0x00, .b = 0x00};
-	ren_state->blend = ren_blend_replace;
+	ren_state->blend = ren_blend_alpha;
+	ren_state->font_spacing = 1;
 	ren_state->clip = (ren_rect_t){0, 0, REN_WIDTH, REN_HEIGHT};
 	ren_state->font = NULL;
 	ren_state->target = ren_screen;
@@ -242,7 +239,7 @@ ren_bitmap_t* ren_load_bitmap(const char filename[static 2])
 	return buf;
 }
 
-inline void ren_free_bitmap(ren_bitmap_t* buf)
+__attribute__((always_inline)) inline void ren_free_bitmap(ren_bitmap_t* buf)
 {
 	free(buf);
 }
@@ -256,25 +253,45 @@ ren_font_t* ren_make_font(const ren_bitmap_t* buf, int glyph_w, int glyph_h)
 	ren_font_t* font = malloc(sizeof(ren_font_t));
 	font->glyph_w = glyph_w;
 	font->glyph_h = glyph_h;
-	font->spacing = 1;
-	font->tabwidth = 1;
 	font->bitmap = buf;
 	font->pitch = buf->width / glyph_w;
 	return font;
 }
 
-inline void ren_free_font(ren_font_t* font)
+void ren_free_font(ren_font_t* font)
 {
 	free(font);
 }
 
 /******************************************************************************
- * Batch
+ * Transform
  *****************************************************************************/
 
-void ren_update_batch(ren_batch_t* bat)
+void ren_recalc(ren_transform_t* tr, const ren_rect_t* rect)
 {
-	ren_recalc_transform(bat->transform, &(ren_rect_t){0, 0, bat->width, bat->height});
+	tr->sin = -sin(tr->ang);
+	tr->cos = cos(tr->ang);
+	/* Precalculate factors */
+	float sin_sx = tr->sin * tr->sx, sin_sy = tr->sin * tr->sy;
+	float cos_sx = tr->cos * tr->sx, cos_sy = tr->cos * tr->sy;
+	/* Translate points to origin */
+	float x0 =          -tr->ox, y0 =          -tr->oy;
+	float x1 = rect->w - tr->ox, y1 =          -tr->oy;
+	float x2 =          -tr->ox, y2 = rect->h - tr->oy;
+	float x3 = rect->w - tr->ox, y3 = rect->h - tr->oy;
+	/* Rotate points around origin */
+	#define rotate(n) do {                    \
+			float tmpx = x##n;                    \
+			x##n = cos_sx * tmpx + sin_sy * y##n; \
+			y##n = cos_sy * y##n - sin_sx * tmpx; \
+		} while (0)
+	rotate(0); rotate(1); rotate(2); rotate(3);
+	#undef rotate
+	/* Find top left and bottom right points of boundary rectangle and clip */
+	tr->beg_x = fmin(x0, fmin(x1, fmin(x2, x3)));
+	tr->beg_y = fmin(y0, fmin(y1, fmin(y2, y3)));
+	tr->end_x = fmax(x0, fmax(x1, fmax(x2, x3)));
+	tr->end_y = fmax(y0, fmax(y1, fmax(y2, y3)));
 }
 
 /******************************************************************************
@@ -423,33 +440,6 @@ void ren_ring(int x, int y, int r)
 	}
 }
 
-void ren_recalc_transform(ren_transform_t* tr, const ren_rect_t* rect)
-{
-	tr->sin = -fastsin(tr->ang);
-	tr->cos = fastcos(tr->ang);
-	/* Precalculate factors */
-	float sin_sx = tr->sin * tr->sx, sin_sy = tr->sin * tr->sy;
-	float cos_sx = tr->cos * tr->sx, cos_sy = tr->cos * tr->sy;
-	/* Translate points to origin */
-	float x0 =          -tr->ox, y0 =          -tr->oy;
-	float x1 = rect->w - tr->ox, y1 =          -tr->oy;
-	float x2 =          -tr->ox, y2 = rect->h - tr->oy;
-	float x3 = rect->w - tr->ox, y3 = rect->h - tr->oy;
-	/* Rotate points around origin */
-	#define rotate(n) do {                    \
-			float tmpx = x##n;                    \
-			x##n = cos_sx * tmpx + sin_sy * y##n; \
-			y##n = cos_sy * y##n - sin_sx * tmpx; \
-		} while (0)
-	rotate(0); rotate(1); rotate(2); rotate(3);
-	#undef rotate
-	/* Find top left and bottom right points of boundary rectangle and clip */
-	tr->beg_x = fmin(x0, fmin(x1, fmin(x2, x3)));
-	tr->beg_y = fmin(y0, fmin(y1, fmin(y2, y3)));
-	tr->end_x = fmax(x0, fmax(x1, fmax(x2, x3)));
-	tr->end_y = fmax(y0, fmax(y1, fmax(y2, y3)));
-}
-
 void ren_blit(const ren_bitmap_t* bmp, int px, int py, const ren_rect_t* rect, const ren_transform_t* tr)
 {
 	/* Translate position */
@@ -464,6 +454,7 @@ void ren_blit(const ren_bitmap_t* bmp, int px, int py, const ren_rect_t* rect, c
 	for (int ty = beg_y; ty < end_y; ++ty)
 	{
 		int tar_y = (ty + py) * ren_state->target->width; /* precalculated y-offset */
+		#pragma omp simd
 		for (int tx = beg_x; tx < end_x; ++tx)
 		{
 			/* Derotate point */
@@ -481,13 +472,12 @@ void ren_blit(const ren_bitmap_t* bmp, int px, int py, const ren_rect_t* rect, c
 
 static inline void blit_scaled(const ren_bitmap_t* buf, const ren_rect_t* rect, int px, int py, int sx, int sy)
 {
-	/* Blend pixels */
+	#pragma omp simd collapse(2)
 	for (int y = py; y < py + rect->h * sy; ++y)
 	{
-		const ren_pixel_t* src = buf->data + ((y - py) / sy + rect->y) * buf->width;
 		for (int x = px; x < px + rect->w * sx; ++x)
 		{
-			if (src[(x - px) / sx + rect->x].a != 0)
+			if ((buf->data + ((y - py) / sy + rect->y) * buf->width)[(x - px) / sx + rect->x].a != 0)
 			{
 				ren_plot(x, y);
 			}
@@ -500,42 +490,12 @@ void ren_print(const char* restrict txt, int x, int y, const ren_transform_t* tr
 	if (txt == NULL) return;
 	x += tr->ox, y += tr->oy;
 	ren_rect_t rect = {.w = ren_state->font->glyph_w, .h = ren_state->font->glyph_h}; 	
-	int shift = ren_state->font->spacing + tr->sx * rect.w;
+	int shift = ren_state->font_spacing + tr->sx * rect.w;
 	for (int i = 0; txt[i] != '\0'; ++i)
 	{
 		rect.x = (txt[i] % ren_state->font->pitch) * ren_state->font->glyph_w;
 		rect.y = (txt[i] / ren_state->font->pitch) * ren_state->font->glyph_h;
 		blit_scaled(ren_state->font->bitmap, &rect, x + i * shift, y, tr->sx, tr->sy);
 	}
-}
-
-void ren_flush(const ren_batch_t* bat, int x, int y)
-{
-	ren_state->translate.x += x;
-	ren_state->translate.y += y;
-	/* For each point of boundary */
-	for (int ty = bat->transform->beg_y; ty < bat->transform->end_y; ++ty)
-	{
-		ren_state->translate.y += ty;
-		for (int tx = bat->transform->beg_x; tx < bat->transform->end_x; ++tx)
-		{
-			ren_state->translate.x += tx;
-			/* Derotate point */
-			float drx = (tx * bat->transform->cos - ty * bat->transform->sin) / bat->transform->sx + bat->transform->ox;
-			float dry = (tx * bat->transform->sin + ty * bat->transform->cos) / bat->transform->sy + bat->transform->oy;
-			if (drx >= 0.0f && dry >= 0.0f && drx < bat->width && dry < bat->height)
-			{
-				for (unsigned i = 0; i < bat->count; ++i)
-				{
-					ren_state->color = bat->bitmap->data[(int)drx + bat->data[i].bx + ((int)dry + bat->data[i].by) * bat->bitmap->width];
-					ren_plot(bat->data[i].px, bat->data[i].py);
-				}
-			}
-			ren_state->translate.x -= tx;
-		} 
-		ren_state->translate.y -= ty;
-	}
-	ren_state->translate.x -= x;
-	ren_state->translate.y -= y;
 }
 

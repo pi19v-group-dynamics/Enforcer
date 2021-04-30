@@ -67,7 +67,7 @@ void ui_label(ui_context_t* ctx, const char* restrict text, int x, int y)
 {
 	ren_push();
 	ren_state->color = ctx->colors[UI_TEXT_COLOR];
-	ren_print(text, x - (strlen(text) * (ren_state->font->glyph_w + ren_state->font->spacing)) / 2, y - ren_state->font->glyph_h / 2, &(ren_transform_t){.sx = 1, .sy = 1});
+	ren_print(text, x - (strlen(text) * (ren_state->font->glyph_w + ren_state->font_spacing)) / 2, y - ren_state->font->glyph_h / 2, &(ren_transform_t){.sx = 1, .sy = 1});
 	ren_pop();
 }
 

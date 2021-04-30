@@ -1,8 +1,7 @@
 CC = gcc
 NAME = poke-n-conquer 
-FLAGS = -Wall -Wextra -pedantic -march=native -Og -g03 \
+FLAGS = -Wall -Wextra -pedantic -march=native -Ofast -fopenmp \
 				-Ilib/ -Isrc/ \
-				-fopenmp \
 				-DLOG_ALLOW=LOG_ALL -include src/log.h \
 				-DSYS_INIT_WINDOW_TITLE="\"Poke n' Conquer\"" \
 				-DMEMALLOC_ABORT -DMEMALLOC_LOG
