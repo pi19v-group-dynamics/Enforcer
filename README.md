@@ -1,3 +1,3 @@
-# Poke n' Conquer
+# Enforcer
 
-Стратегия в реальном времени
+Игра в жанре *shoot em' up*
